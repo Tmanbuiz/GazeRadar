@@ -4,6 +4,15 @@ import type { ConnectorBinding } from "../lib/connector-contract.mjs";
 
 const worker = {
   fetch(request: Request, env: Cloudflare.Env, ctx: ExecutionContext<{ CONNECTORS?: ConnectorBinding }>) {
+    // The Sites dispatcher supplies authenticated identity only on this origin.
+    // A direct workers.dev/custom-domain client must not spoof these headers.
+    if (!import.meta.env.DEV && new URL(request.url).hostname !== "gazeradar.sandyriver7.chatgpt.site") {
+      const safeHeaders = new Headers(request.headers);
+      for (const name of [...safeHeaders.keys()]) {
+        if (name.startsWith("oai-authenticated-user-")) safeHeaders.delete(name);
+      }
+      request = new Request(request, { headers: safeHeaders });
+    }
     let binding = ctx.props?.CONNECTORS;
     // Local preview emulates the same request-scoped capability. This branch and
     // the auxiliary service binding are absent from production builds.

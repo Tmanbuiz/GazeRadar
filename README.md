@@ -31,3 +31,16 @@ Connect a dedicated monitoring backend (changedetection.io or a job queue with b
 Project repository: https://github.com/Tmanbuiz/GazeRadar
 
 The existing private deployment is https://gazeradar.sandyriver7.chatgpt.site. The Sites hosting identity in `.openai/hosting.json` belongs to that existing deployment; reuse it for edits. GitHub commits do not automatically deploy to Sites. Publication still requires the Sites source-sync, build, and saved-version deployment workflow.
+
+## Deploy to your own Cloudflare account
+
+Cloudflare Workers Builds settings:
+
+- Build command: `pnpm run build`
+- Deploy command: `pnpm run deploy`
+
+Wrangler 4.45+ can provision D1 when `database_id` is omitted. The Vite config declares `gazeradar-db` and the `DB` binding, without an account-specific placeholder. The deploy script publishes the Worker, then applies migrations to its provisioned database using the generated config. Future deploys reuse the linked resource. Your build token needs Worker deployment and D1 permissions. The build command alone does not create a remote database.
+
+The first deployment may briefly serve the UI before its tables exist. If schema migration fails, the deploy command fails and reports it; rerun after fixing the migration or permissions.
+
+**Authentication:** The existing app uses dispatch-owned ChatGPT sign-in, which only works at the Sites URL. Deploying the bundle to workers.dev does not install that dispatcher or its sign-in routes. Direct-hosted requests have identity headers stripped and stay signed out until an independent authentication integration is implemented. Do not remove that guard or add a hardcoded user identity to work around sign-in.
