@@ -5,7 +5,7 @@ const KEEP_EVENTS=500; // newest alerts kept per account
 const REBASE_AFTER_FAILURES=2; // problem checks in a row before an unfamiliar page may replace the baseline
 const REBASE_MIN_AGE_MS=3600000; // ...and only if the last good check is at least this old
 
-export async function POST(req:Request){try{const {owner,db}=context(req);const {id}=await req.json() as {id:string};const w=await db.prepare('SELECT * FROM watches WHERE id=? AND owner=?').bind(id,owner).first<any>();if(!w)throw new Error('Watch not found.');if(!w.active)throw new Error('Resume this watch before checking.');if(w.checked && Date.now()-w.checked<60000)throw new Error('Please wait a minute between checks.');const lock=await db.prepare('UPDATE watches SET checking=? WHERE id=? AND owner=? AND (checking=0 OR checking<?)').bind(Date.now(),id,owner,Date.now()-60000).run();if(!lock.meta.changes)throw new Error('This watch is already being checked.');
+export async function POST(req:Request){try{const {owner,db}=await context(req);const {id}=await req.json() as {id:string};const w=await db.prepare('SELECT * FROM watches WHERE id=? AND owner=?').bind(id,owner).first<any>();if(!w)throw new Error('Watch not found.');if(!w.active)throw new Error('Resume this watch before checking.');if(w.checked && Date.now()-w.checked<60000)throw new Error('Please wait a minute between checks.');const lock=await db.prepare('UPDATE watches SET checking=? WHERE id=? AND owner=? AND (checking=0 OR checking<?)').bind(Date.now(),id,owner,Date.now()-60000).run();if(!lock.meta.changes)throw new Error('This watch is already being checked.');
  try{
  const page=await readPage(w.url);
  const lines=page.lines;

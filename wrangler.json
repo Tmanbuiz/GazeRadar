@@ -1,0 +1,9 @@
+{
+ "$schema":"node_modules/wrangler/config-schema.json",
+ "name":"gazeradar",
+ "main":"worker/index.ts",
+ "compatibility_date":"2026-05-15",
+ "compatibility_flags":["nodejs_compat"],
+ "keep_vars":true,
+ "d1_databases":[{"binding":"DB","database_name":"gazeradar-db","migrations_dir":"drizzle"}]
+}

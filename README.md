@@ -4,7 +4,7 @@ An original, private careers-page monitoring MVP inspired by changedetection.io.
 
 ## Available now
 
-- ChatGPT identity and owner-scoped persistent D1 watches and events.
+- Cloudflare Access identity and owner-scoped persistent D1 watches and events.
 - Add a public HTTPS HTML/text page and optional comma-separated keyword phrases.
 - Manual checks, baseline comparison, an in-app alert inbox, pause/resume, search, and deletion.
 - First successful check establishes a baseline; later checks report new lines matching the keywords (case insensitive). Empty keywords match all new text. Changes are not verified job listings.
@@ -21,31 +21,33 @@ Unattended checking and email delivery. The app visibly labels both as unavailab
 
 ## Development
 
-Use the Sites workflow with the pinned Vinext starter and existing hosting identity. Install using the plugin dependency helper. Generate schema changes with `npm run db:generate`, build with the Sites build helper, and apply local migrations as described in the starter. Do not rewrite applied migrations.
-
-Run `node --experimental-strip-types --test tests/monitor.test.mjs` and `npx tsc --noEmit`.
-
-The production host supplies trusted `oai-authenticated-user-id` identity headers. Do not expose the Worker directly under a host that permits spoofed identity headers. All app records are keyed by the stable user ID, not email.
+Install with `pnpm install --frozen-lockfile`, run `pnpm run dev` locally, and build with `pnpm run build`. Generate schema changes with `pnpm run db:generate`. Do not rewrite applied migrations. Run tests with `node --experimental-strip-types --test tests/*.test.mjs` and `npx tsc --noEmit`.
 
 ## Next implementation milestone
 
 Connect a dedicated monitoring backend (changedetection.io or a job queue with browser rendering), configure an email provider using runtime secrets, add per-watch cadence and delivery preferences, and verify a real unattended check and email before enabling either setting. Keep source authorisation and job-board access terms in scope for each integration.
 
-## Source and hosting
+## Hosting — your Cloudflare account only
 
-Project repository: https://github.com/Tmanbuiz/GazeRadar
+Source: https://github.com/Tmanbuiz/GazeRadar
 
-The existing private deployment is https://gazeradar.sandyriver7.chatgpt.site. The Sites hosting identity in `.openai/hosting.json` belongs to that existing deployment; reuse it for edits. GitHub commits do not automatically deploy to Sites. Publication still requires the Sites source-sync, build, and saved-version deployment workflow.
+Live address: https://gazeradar.atoyejet.workers.dev
 
-## Deploy to your own Cloudflare account
+The previous ChatGPT-hosted Site was deleted at the owner's request. Do not publish this project through ChatGPT Sites or reintroduce its hosting configuration, connector services, identity headers or sign-in links.
 
 Cloudflare Workers Builds settings:
 
 - Build command: `pnpm run build`
 - Deploy command: `pnpm run deploy`
 
-Wrangler 4.45+ can provision D1 when `database_id` is omitted. The Vite config declares `gazeradar-db` and the `DB` binding, without an account-specific placeholder. The deploy script publishes the Worker, resolves the actual DB binding from the deployed Worker settings when its ID was not written back locally, then applies migrations to that exact database using the generated config. Future deploys reuse the linked resource. Your build token needs Worker deployment and D1 permissions. The build command alone does not create a remote database.
+`wrangler.json` declares the Worker and D1 binding. Wrangler provisions or reuses the linked database. The deployment script resolves the DB binding from the deployed Worker settings if needed, then applies the migrations. The build token needs Worker and D1 permissions. Tokens must remain in Cloudflare build settings.
 
-The first deployment may briefly serve the UI before its tables exist. If schema migration fails, the deploy command fails and reports it; rerun after fixing the migration or permissions.
+## Account sign-in with Cloudflare Access
 
-**Authentication:** The existing app uses dispatch-owned ChatGPT sign-in, which only works at the Sites URL. Deploying the bundle to workers.dev does not install that dispatcher or its sign-in routes. Direct-hosted requests have identity headers stripped and stay signed out until an independent authentication integration is implemented. Do not remove that guard or add a hardcoded user identity to work around sign-in.
+1. Protect the Worker hostname with a Cloudflare Access application in your own account. Configure an allow policy for the people who should use it.
+2. In the Worker runtime variables, set `CF_ACCESS_TEAM_DOMAIN` to your team hostname, for example `my-team.cloudflareaccess.com` (no `https://`), and `CF_ACCESS_AUD` to the application's audience tag. These are configuration identifiers, not passwords. `keep_vars` preserves dashboard variables on deployment.
+3. Sign in through Access. The app verifies the token's RSA signature, issuer, application audience, expiry and subject against your team's public signing keys. It never trusts client-supplied user-ID headers.
+
+Until Access is configured, the UI remains a preview and private record operations reject unauthenticated requests. Authentication is not configured or verified in the user's Cloudflare account from this environment. Existing records keyed under an earlier identity are not silently reassigned.
+
+Reference: https://developers.cloudflare.com/cloudflare-one/access-controls/applications/http-apps/authorization-cookie/validating-json/
