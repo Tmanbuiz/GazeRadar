@@ -7,8 +7,13 @@ An original, private careers-page monitoring MVP inspired by changedetection.io.
 - ChatGPT identity and owner-scoped persistent D1 watches and events.
 - Add a public HTTPS HTML/text page and optional comma-separated keyword phrases.
 - Manual checks, baseline comparison, an in-app alert inbox, pause/resume, search, and deletion.
-- First successful check establishes a baseline; later checks report new lines matching any keyword (case insensitive). Empty keywords match all new text. Changes are not verified job listings.
-- Limits: 20 watches per account, at least 60 seconds between checks, 1 MB fetched-page limit, 18-second fetch timeout, 4 redirect attempts. Failed checks preserve the previous baseline.
+- First successful check establishes a baseline; later checks report new lines matching the keywords (case insensitive). Empty keywords match all new text. Changes are not verified job listings.
+- Keyword rules: a keyword matches a word that starts with it ("engineer" also matches "engineering"). Keywords of three characters or fewer, and keywords in "quotes", must match a whole word ("it" does not match "item"). A keyword starting with `-` excludes lines that match it ("-senior"). Lines of four characters or more are compared.
+- Baselines store a short hash per line rather than the page text, so a row stays small. Baselines saved by the first version (full text) are still read and are converted on the next successful check.
+- If a page no longer resembles the baseline (fewer than 40% of its lines remain, for baselines of 20+ lines), the check fails with a message and keeps the old baseline, because it is usually an error page or bot check. After 2 such problem checks in a row, and only if the last good check was at least an hour ago, the new page becomes the baseline and no alerts are created.
+- Each watch shows its last successful check separately from failed attempts, and reads "Needs attention" after 3 failed checks in a row.
+- An alert line shows an "Open link" when the page had a link whose text matches that line. This is only a link found next to the text on the page; it is not a verified job posting. Only https links are kept.
+- Limits: 20 watches per account, at least 60 seconds between checks, 1 MB fetched-page limit, 18-second fetch timeout, 4 redirect attempts, 1,500 compared lines per page (a check reports when a page was cut off), 30 lines per alert (with a "more" count), newest 500 alerts kept per account (the inbox shows the latest 100). Failed checks preserve the previous baseline.
 
 ## Not yet connected
 
