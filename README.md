@@ -1,70 +1,95 @@
 # GazeRadar
 
-An original, private careers-page monitoring MVP inspired by changedetection.io. It does not contain or run the changedetection.io source or service.
+A personal opportunity desk for **Jobs, Housing and Any Website**. Source lives in [Tmanbuiz/GazeRadar](https://github.com/Tmanbuiz/GazeRadar); the application runs only in the owner's Cloudflare account.
 
-## Available now
+## Current implementation
 
-- Sign-in by emailed one-time code (anyone can register with an email) or Cloudflare Access, with owner-scoped persistent D1 watches and events.
-- Add a public HTTPS HTML/text page and optional comma-separated keyword phrases.
-- Manual checks, baseline comparison, an in-app alert inbox, pause/resume, search, and deletion.
-- First successful check establishes a baseline; later checks report new lines matching the keywords (case insensitive). Empty keywords match all new text. Changes are not verified job listings.
-- Keyword rules: a keyword matches a word that starts with it ("engineer" also matches "engineering"). Keywords of three characters or fewer, and keywords in "quotes", must match a whole word ("it" does not match "item"). A keyword starting with `-` excludes lines that match it ("-senior"). Lines of four characters or more are compared.
-- Baselines store a short hash per line rather than the page text, so a row stays small. Baselines saved by the first version (full text) are still read and are converted on the next successful check.
-- If a page no longer resembles the baseline (fewer than 40% of its lines remain, for baselines of 20+ lines), the check fails with a message and keeps the old baseline, because it is usually an error page or bot check. After 2 such problem checks in a row, and only if the last good check was at least an hour ago, the new page becomes the baseline and no alerts are created.
-- Each watch shows its last successful check separately from failed attempts, and reads "Needs attention" after 3 failed checks in a row.
-- An alert line shows an "Open link" when the page had a link whose text matches that line. This is only a link found next to the text on the page; it is not a verified job posting. Only https links are kept.
-- Limits: 20 watches per account, at least 60 seconds between checks, 1 MB fetched-page limit, 18-second fetch timeout, 4 redirect attempts, 1,500 compared lines per page (a check reports when a page was cut off), 30 lines per alert (with a "more" count), newest 500 alerts kept per account (the inbox shows the latest 100). Failed checks preserve the previous baseline.
+### Jobs
 
-## Not yet connected
+- Choose a PDF, DOCX or TXT CV, or enter skills and preferred job titles manually. PDF and Word text extraction runs in the browser; the original file and full text are never sent to GazeRadar. Only the editable fields explicitly saved by the user reach D1.
+- Review suggested skills/titles, preferred locations, work arrangement, employment type and minimum annual CAD salary. The skill vocabulary is intentionally limited and users can correct or supplement it. There is no paid AI dependency, CV tailoring, cover-letter generation or automatic application submission.
+- Add an employer's public Greenhouse or Lever **board** URL, or a readable careers/detail page. Official board read endpoints return individual jobs; HTML pages with `JobPosting` JSON-LD also produce jobs. Ordinary pages produce text-change alerts rather than invented job records.
+- Matches explain title/skill overlap, location, pay information and items to review. They use Strong match / Possible match / Stretch role rather than a fabricated percentage. Missing information is stated explicitly; qualifications and eligibility are never guaranteed.
+- Save, dismiss or mark jobs applied. Application links open the original source. A small source guide links to Job Bank and New Brunswick careers; these are browsing links, not inventory-feed integrations.
 
-Unattended checking and alert email delivery. The app visibly labels both as unavailable. The only email the app sends is the sign-in code, and no automatic schedules are installed. JavaScript rendering, PDF parsing, authenticated external pages, integrations with job boards, and extraction of individual verified jobs are outside this version.
+### Housing
 
-## Development
+- Save rent/buy preferences, locations, user-chosen CAD budget, minimum bedrooms and property type.
+- Add a specific house listing or public search page to the watchlist. Readable `RealEstateListing`, `House`, `Apartment` and related JSON-LD can produce property results. Price and status comparisons require explicit published data; ordinary pages yield text-change alerts.
+- Choose price, published status, description, open-house or photo-link changes. Photo comparisons concern links, not image downloads. Price comparisons require two known prices in the same currency. An existing tracked home's changes remain reportable even if its new price exceeds the search budget.
+- A 404/410 after a successful check creates one **Listing unavailable** alert, preserving the old baseline; it never claims that the home sold. A listing absent from complete source data is labelled absent from that source, not confirmed sold. Failure to extract details is a failed check, not a zero price or removal.
+- REALTOR.ca and Zillow links in the source guide do not imply partnership, authorised inventory access or guaranteed monitoring. A source that blocks access remains unsupported until a permitted integration is available; there is no bot-check bypass.
 
-Install with `pnpm install --frozen-lockfile`, run `pnpm run dev` locally, and build with `pnpm run build`. Generate schema changes with `pnpm run db:generate`. Do not rewrite applied migrations. Run tests with `node --experimental-strip-types --test tests/*.test.mjs` and `npx tsc --noEmit`.
+### Any Website and shared watchlist
 
-## Next implementation milestone
+- Monitor a public HTTPS HTML/text page with optional comma-separated keyword phrases. Keywords match word starts; short terms (3 characters or fewer) and quoted terms match whole words. A leading `-` excludes a phrase.
+- The first ordinary-page check stores hashed lines as a baseline. Later checks report matching additions. Jobs without explicit keywords use the saved job titles/skills. All page-text alerts are leads to inspect, not verified listings.
+- Large unexpected page changes preserve the baseline first. After two failures and an hour since the last good check, an ordinary page may be rebased without generating alerts. Previously structured sources must remain readable as structured data; bot/error pages cannot silently replace those details.
+- Add/edit preferences, pause/resume, search, manual checks, owner-scoped inbox and deletion confirmation.
 
-Connect a dedicated monitoring backend (changedetection.io or a job queue with browser rendering), configure an email provider using runtime secrets, add per-watch cadence and delivery preferences, and verify a real unattended check and email before enabling either setting. Keep source authorisation and job-board access terms in scope for each integration.
+## Scheduled checks and Zoho email
 
-## Hosting — your Cloudflare account only
+The Worker exports a `scheduled` handler and `wrangler.json` installs `*/15 * * * *` in **Cloudflare**, with no ChatGPT automation or hosted component.
 
-Source: https://github.com/Tmanbuiz/GazeRadar
+- Per-watch targets: 1, 6 (default), 12 or 24 hours, or weekly. Each run takes the 3 oldest due watches, then up to 3 eligible email accounts. This conservative first-release budget can delay checks under load; intervals are targets, not delivery guarantees. Raise batch sizes only after checking the owner's plan/usage.
+- Check leases prevent concurrent duplicate checks. Failed checks keep the previous baseline, display a recovery message and back off (up to a week).
+- Email defaults **off**. Users explicitly choose change emails, a daily summary or a weekly summary, optionally receiving a no-change summary. Per-watch email can be disabled independently. Enabling email starts with future changes; turning it off retires pending emails.
+- Only an address verified through the email-code sign-in can receive alerts. Cloudflare Access-only users need email verification before enabling delivery. Arbitrary recipient addresses are not accepted.
+- Email uses the same Zoho Mail OAuth adapter as sign-in, with cached access tokens, one refresh/retry on 401, allowed Zoho hosts only, no credential-bearing redirects, timeouts and provider errors. Secrets stay server-side.
+- Emails include detected times, source links, monitoring failures and a signed unsubscribe link. Opening unsubscribe is a confirmation page; only submitting it changes preferences. Daily/weekly emails begin one period after saving. Up to 30 source events fit in an email; additional pending events continue in later batches.
+- Pending event IDs are retired only after provider acceptance. Failed sends retry with backoff. A provider accepting a message immediately before an infrastructure/database failure can still lead to a duplicate retry; this is not an exactly-once mail system. Provider acceptance is not proof of inbox delivery.
+- Limits: 200 alert-send attempts/day and 300 total email attempts/day shared with sign-in; Zoho account limits also apply. These are protective app caps, not a claim that a free account can deliver that many messages.
+- Settings show the last real scheduler run and last accepted alert email. Missing credentials are shown as pending setup. The implementation has not configured or verified the owner's live Zoho credentials from this workspace.
 
-Live address: https://gazeradar.wiantribe.com (custom domain on the `gazeradar` Worker, declared in `wrangler.json` under `routes`; the `wiantribe.com` zone must stay in the same Cloudflare account). The default `https://gazeradar.atoyejet.workers.dev` address also reaches the same Worker. Cover every address you leave enabled with the Access application, or turn the workers.dev address off in the Worker's Domains settings.
+## Limits and source access
 
-The previous ChatGPT-hosted Site was deleted at the owner's request. Do not publish this project through ChatGPT Sites or reintroduce its hosting configuration, connector services, identity headers or sign-in links.
+20 watches/account; at least 60 seconds between manual checks; 18-second source timeout; 4 redirect attempts; HTML response up to 1 MB and 1,500 lines; provider JSON up to 4 MB, first 100 jobs (no pagination); structured data capped at 100 records/source; up to 200 stored discovered items/watch; 30 displayed lines/change alert; inbox shows latest 100 events and retains the newest 500 plus undelivered events. A truncated source never proves an old listing is absent. Legacy baselines remain readable.
 
-Cloudflare Workers Builds settings:
+CVs: up to 5 MB, PDFs up to 20 pages, text PDFs only. Scanned/image PDFs need manual entry; encrypted or malformed documents can fail. CV text is temporary browser memory. Saved job/housing profiles can be replaced/deleted. Deleting a watch also deletes its discovered items and alerts.
 
-- Build command: `pnpm run build`
-- Deploy command: `pnpm run deploy`
+Sources requiring JavaScript rendering, authenticated sessions, OCR, broader job/property feeds and partnership integrations remain future work. Do not assume access to Indeed, Google, CREA/DDF or Zillow inventory. Use permitted source-specific integrations and attribution before expanding coverage.
 
-`wrangler.json` declares the Worker and D1 binding. Wrangler provisions or reuses the linked database. The deployment script resolves the DB binding from the deployed Worker settings if needed, then applies the migrations. The build token needs Worker and D1 permissions. Tokens must remain in Cloudflare build settings.
+## Development and validation
 
-## Account sign-in with an emailed code
+```sh
+pnpm install --frozen-lockfile
+pnpm run dev
+pnpm run build
+pnpm exec tsc --noEmit
+node --experimental-strip-types --test tests/*.test.mjs
+```
 
-Visitors enter an email address, receive a 6-digit code from gazeradar@wiantribe.com, and enter it. The first successful code creates the account; there are no passwords.
+New schema changes use `pnpm run db:generate`; preserve previously applied migrations. Tests run real migration SQL in `node:sqlite` and cover authentication, source bounds, matching, baselines, leases, property price/removal alerts, mail scheduling, retries, isolation and unsubscribe. For local D1, run:
 
-- Code: random, stored only as an HMAC, valid 10 minutes, single use, 5 wrong tries then locked. Sessions are a random token in a `__Host-gz_session` cookie (HttpOnly, Secure, SameSite=Lax, 30 days); only a hash of it is stored. All changing requests must come from this site's own origin.
-- Abuse limits: Cloudflare Turnstile on every code request, 60 seconds between codes to one address, 5 codes per address and 10 per IP per hour, 300 emails a day in total.
-- The response never reveals whether an address already has an account.
-- Mail goes through the Zoho Mail API with OAuth (Canada data centre by default). The app only talks to real Zoho hosts.
+```sh
+pnpm exec wrangler d1 migrations apply DB --local --config wrangler.json --persist-to .wrangler/state
+```
 
-Set up (security settings, done by the site owner in their own accounts):
+The production deployment script resolves source migrations to an absolute path; generated configuration lives in `dist/server`, not alongside the source `drizzle` folder.
 
-1. Zoho API Console (same region as your mailbox): create a Self Client, then generate a grant code with scope `ZohoMail.messages.CREATE,ZohoMail.accounts.READ`, signed in as gazeradar@wiantribe.com.
-2. On your computer run `ZOHO_CLIENT_ID=... ZOHO_CLIENT_SECRET=... ZOHO_GRANT_CODE=... node scripts/zoho-oauth-setup.mjs`. It prints the refresh token and the mail account id.
-3. Cloudflare > Turnstile: create a widget for gazeradar.wiantribe.com (and the workers.dev address if you use it).
-4. Worker > Settings > Variables and Secrets. Secrets: `ZOHO_CLIENT_ID`, `ZOHO_CLIENT_SECRET`, `ZOHO_REFRESH_TOKEN`, `AUTH_SECRET` (any long random string), `TURNSTILE_SECRET`. Plain variables: `ZOHO_ACCOUNT_ID`, `ZOHO_FROM` (gazeradar@wiantribe.com), `TURNSTILE_SITE_KEY`. For other Zoho regions also set `ZOHO_ACCOUNTS_URL` and `ZOHO_MAIL_URL` (for example `https://accounts.zoho.com` and `https://mail.zoho.com`).
-5. Until `AUTH_SECRET`, `TURNSTILE_SECRET` and `TURNSTILE_SITE_KEY` are all set the sign-in dialog says email sign-in is not set up, and no email is sent.
+## Hosting — owner's Cloudflare account only
 
-## Account sign-in with Cloudflare Access (optional second path)
+Live hostname: https://gazeradar.wiantribe.com. The default https://gazeradar.atoyejet.workers.dev address reaches the same Worker when enabled. `wiantribe.com` must remain in the same Cloudflare account as the Worker.
 
-1. Protect the Worker hostname with a Cloudflare Access application in your own account. Configure an allow policy for the people who should use it.
-2. In the Worker runtime variables, set `CF_ACCESS_TEAM_DOMAIN` to your team hostname, for example `my-team.cloudflareaccess.com` (no `https://`), and `CF_ACCESS_AUD` to the application's audience tag. These are configuration identifiers, not passwords. `keep_vars` preserves dashboard variables on deployment.
-3. Sign in through Access. The app verifies the token's RSA signature, issuer, application audience, expiry and subject against your team's public signing keys. It never trusts client-supplied user-ID headers.
+Do not create, publish, update or mirror this application using ChatGPT Sites or ChatGPT-hosted runtimes. The previous Site was deleted at the owner's request. Do not reintroduce ChatGPT hosting configuration, connectors, identity headers or sign-in links.
 
-Without a valid email session or Access token, the UI remains a preview and private record operations reject the request. Authentication is not configured or verified in the user's Cloudflare account from this environment. Existing records keyed under an earlier identity are not silently reassigned.
+Cloudflare Workers Builds:
 
-Reference: https://developers.cloudflare.com/cloudflare-one/access-controls/applications/http-apps/authorization-cookie/validating-json/
+- Build: `pnpm run build`
+- Deploy: `pnpm run deploy`
+
+Wrangler provisions/reuses D1. The deploy script resolves inherited binding IDs, then applies migrations from the source directory. The build token needs appropriate Worker/D1 permissions and stays in Cloudflare settings. `keep_vars` preserves runtime variables set in the dashboard. Verify migrations complete and the `*/15 * * * *` trigger appears after deployment.
+
+## Zoho setup (reuse the existing mailbox)
+
+The planned sender is **gazeradar@wiantribe.com**. The default endpoints are Zoho's Canada data centre; choose the endpoints belonging to the **mailbox's actual data centre**, not the recipient's country. See [Zoho setup and launch checks](docs/ZOHO_AND_LAUNCH.md).
+
+Worker secrets: `ZOHO_CLIENT_ID`, `ZOHO_CLIENT_SECRET`, `ZOHO_REFRESH_TOKEN`, `AUTH_SECRET`, `TURNSTILE_SECRET`.
+
+Worker ordinary variables: `ZOHO_ACCOUNT_ID`, `ZOHO_FROM`, `TURNSTILE_SITE_KEY`. Optional: `ZOHO_ACCOUNTS_URL`, `ZOHO_MAIL_URL`, `APP_URL` (default `https://gazeradar.wiantribe.com`). Never commit secrets or put them into client code.
+
+## Account authentication
+
+Email-code sign-in creates a private account on the first successful verification. Codes are random, HMAC-stored, single-use, valid 10 minutes, with 5 wrong attempts maximum. Sessions use a random token in a 30-day `__Host-gz_session` cookie (HttpOnly, Secure, SameSite=Lax); only its hash is stored. State-changing requests require the site's own origin. Turnstile and per-address/IP/global limits protect code requests.
+
+Optional Cloudflare Access support verifies signed JWTs using `CF_ACCESS_TEAM_DOMAIN` and `CF_ACCESS_AUD`. Protect every enabled hostname consistently. Access subjects and email-code subjects remain separate identities; old records are never silently reassigned. Client-supplied user-ID headers and hardcoded shared identities are never trusted.

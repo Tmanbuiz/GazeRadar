@@ -1,9 +1,12 @@
-// Sends the sign-in code through the Zoho Mail API using OAuth. Standalone: env, db and fetch are passed in.
+// Shared Zoho Mail adapter for sign-in and opted-in watch alerts.
+import {normalizeEmail} from './login.ts';
 type DB = D1Database;
 export type ZohoEnv = {
  ZOHO_CLIENT_ID?: string; ZOHO_CLIENT_SECRET?: string; ZOHO_REFRESH_TOKEN?: string; ZOHO_ACCOUNT_ID?: string;
  ZOHO_FROM?: string; ZOHO_ACCOUNTS_URL?: string; ZOHO_MAIL_URL?: string;
 };
+export type MailMessage = {subject:string;content:string};
+export const zohoConfigured=(env:ZohoEnv)=>!!(env.ZOHO_CLIENT_ID&&env.ZOHO_CLIENT_SECRET&&env.ZOHO_REFRESH_TOKEN&&env.ZOHO_ACCOUNT_ID&&env.ZOHO_FROM);
 const DEFAULT_ACCOUNTS = 'https://accounts.zohocloud.ca';
 const DEFAULT_MAIL = 'https://mail.zohocloud.ca';
 const HOST_OK = /^(accounts|mail)\.(zoho\.(com|eu|in|com\.au|jp|sa|com\.cn)|zohocloud\.ca)$/;
@@ -11,7 +14,7 @@ const HOST_OK = /^(accounts|mail)\.(zoho\.(com|eu|in|com\.au|jp|sa|com\.cn)|zoho
 // Only real Zoho hosts may receive the client secret and refresh token.
 export function zohoBase(value: string | undefined, fallback: string): string {
  const u = new URL(value || fallback);
- if (u.protocol !== 'https:' || !HOST_OK.test(u.hostname) || u.port) throw new Error('Zoho URL is not allowed.');
+ if (u.protocol !== 'https:' || !HOST_OK.test(u.hostname) || u.port || u.username || u.password) throw new Error('Zoho URL is not allowed.');
  return u.origin;
 }
 
@@ -30,6 +33,7 @@ async function accessToken(env: ZohoEnv, db: DB, f: typeof fetch, now: number, f
  if (!env.ZOHO_CLIENT_ID || !env.ZOHO_CLIENT_SECRET || !env.ZOHO_REFRESH_TOKEN) throw new Error('Zoho is not configured.');
  const res = await f(`${zohoBase(env.ZOHO_ACCOUNTS_URL, DEFAULT_ACCOUNTS)}/oauth/v2/token`, {
   method: 'POST',
+  redirect:'error',signal:AbortSignal.timeout(20000),
   headers: { 'content-type': 'application/x-www-form-urlencoded' },
   body: new URLSearchParams({ grant_type: 'refresh_token', client_id: env.ZOHO_CLIENT_ID, client_secret: env.ZOHO_CLIENT_SECRET, refresh_token: env.ZOHO_REFRESH_TOKEN }).toString(),
  });
@@ -41,22 +45,23 @@ async function accessToken(env: ZohoEnv, db: DB, f: typeof fetch, now: number, f
  return data.access_token;
 }
 
-export async function sendLoginCode(env: ZohoEnv, db: DB, f: typeof fetch, to: string, code: string, now = Date.now()): Promise<void> {
- if (!env.ZOHO_ACCOUNT_ID || !env.ZOHO_FROM) throw new Error('Zoho is not configured.');
+export async function sendMail(env: ZohoEnv, db: DB, f: typeof fetch, to: string, msg:MailMessage, now = Date.now()): Promise<void> {
+ if (!zohoConfigured(env) || !env.ZOHO_ACCOUNT_ID || !env.ZOHO_FROM) throw new Error('Zoho is not configured.');
  if (!/^\d+$/.test(env.ZOHO_ACCOUNT_ID)) throw new Error('Zoho account id is invalid.');
  const url = `${zohoBase(env.ZOHO_MAIL_URL, DEFAULT_MAIL)}/api/accounts/${env.ZOHO_ACCOUNT_ID}/messages`;
- const msg = loginMessage(code);
+ if(!normalizeEmail(to)||!normalizeEmail(env.ZOHO_FROM))throw new Error('Email address is invalid.');
  const body = JSON.stringify({ fromAddress: env.ZOHO_FROM, toAddress: to, subject: msg.subject, content: msg.content, mailFormat: 'plaintext' });
  let token = await accessToken(env, db, f, now, false);
  for (let attempt = 0; attempt < 2; attempt++) {
-  const res = await f(url, { method: 'POST', headers: { authorization: `Zoho-oauthtoken ${token}`, 'content-type': 'application/json', accept: 'application/json' }, body });
+  const res = await f(url, { method: 'POST', redirect:'error',signal:AbortSignal.timeout(20000), headers: { authorization: `Zoho-oauthtoken ${token}`, 'content-type': 'application/json', accept: 'application/json' }, body });
   if (res.status === 401 && attempt === 0) { token = await accessToken(env, db, f, now, true); continue; }
   const data = await res.json().catch(() => null) as { status?: { code?: number } } | null;
-  if (!res.ok || (data?.status?.code !== undefined && data.status.code !== 200)) throw new Error(`Zoho send failed (${res.status}).`);
+  if (!res.ok || data?.status?.code !== 200) throw new Error(`Zoho send failed (${res.status}).`);
   return;
  }
  throw new Error('Zoho send failed.');
 }
+export async function sendLoginCode(env:ZohoEnv,db:DB,f:typeof fetch,to:string,code:string,now=Date.now()):Promise<void>{return sendMail(env,db,f,to,loginMessage(code),now);}
 
 export async function verifyTurnstile(secret: string | undefined, token: unknown, ip: string, f: typeof fetch): Promise<boolean> {
  if (!secret || typeof token !== 'string' || !token || token.length > 2048) return false;

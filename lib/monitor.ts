@@ -1,5 +1,5 @@
 export function validUrl(input: string) {
- let u: URL; try {u=new URL(input);} catch {throw new Error('Enter a valid, complete careers-page URL.');}
+ let u: URL; try {u=new URL(input);} catch {throw new Error('Enter a valid, complete website URL.');}
  const h=u.hostname.toLowerCase();
  if(u.protocol!=='https:' || u.username || u.password || (u.port && u.port!=='443') || !/^[a-z][a-z0-9.-]*\.[a-z]{2,}$/.test(h) || /(^|\.)(localhost|local|internal|test|invalid|onion)$/.test(h)) throw new Error('Use a public HTTPS website with a domain name.');
  u.hash=''; return u.toString();
@@ -127,17 +127,18 @@ export function buildAlert(additions: string[], links: Link[]): AlertContent {
  return {v: 2, items: additions.slice(0, MAX_ALERT_ITEMS).map(t => { const h = linkFor(t, links); return h ? {t, h} : {t}; }), more: Math.max(0, additions.length - MAX_ALERT_ITEMS)};
 }
 
-export async function readPage(input:string) {
+export class PageError extends Error {status:number;constructor(message:string,status:number){super(message);this.status=status;}}
+export async function readPage(input:string, f:typeof fetch=fetch, allowShort=false) {
  let url=validUrl(input); const signal=AbortSignal.timeout(18000);
  for(let i=0;i<4;i++) {
- const res=await fetch(url,{redirect:'manual',signal,headers:{'User-Agent':'GazeRadar/0.1 (careers page monitor)','Accept':'text/html,text/plain'}});
+ const res=await f(url,{redirect:'manual',signal,headers:{'User-Agent':'GazeRadar/0.2 (website monitoring)','Accept':'text/html,text/plain'}});
  if([301,302,303,307,308].includes(res.status)){await res.body?.cancel(); const next=res.headers.get('location'); if(!next)throw new Error('The page redirected without a destination.');url=validUrl(new URL(next,url).toString());continue;}
- if(!res.ok){await res.body?.cancel();throw new Error(`Website returned ${res.status}. Try a direct careers-page link.`);}
+ if(!res.ok){await res.body?.cancel();throw new PageError(`Website returned ${res.status}. Check the original link or try again later.`,res.status);}
  if(!/text\/(html|plain)/i.test(res.headers.get('content-type')||'')){await res.body?.cancel();throw new Error('This monitor supports HTML or text pages.');}
  const reader=res.body?.getReader(); if(!reader)throw new Error('The website returned an empty page.');
  let size=0;const parts:Uint8Array[]=[];while(true){const {done,value}=await reader.read();if(done)break;size+=value.length;if(size>1000000){await reader.cancel();throw new Error('This page is too large. Try a more specific careers URL.');}parts.push(value);}
  const buffer=new Uint8Array(size);let offset=0;for(const part of parts){buffer.set(part,offset);offset+=part.length;}
- const data=pageData(new TextDecoder().decode(buffer),url);if(data.lines.join('').length<120)throw new Error('Not enough readable text. This page may require JavaScript or block monitoring.');return data;
+ const html=new TextDecoder().decode(buffer);const data=pageData(html,url);if(!allowShort&&data.lines.join('').length<120)throw new Error('Not enough readable text. This page may require JavaScript or block monitoring.');return {...data,html,url};
  }
  throw new Error('Too many redirects. Use the final careers-page URL.');
 }

@@ -5,6 +5,7 @@
  "compatibility_date":"2026-05-15",
  "compatibility_flags":["nodejs_compat"],
  "keep_vars":true,
+ "triggers":{"crons":["*/15 * * * *"]},
  "routes":[{"pattern":"gazeradar.wiantribe.com","custom_domain":true}],
  "d1_databases":[{"binding":"DB","database_name":"gazeradar-db","migrations_dir":"drizzle"}]
 }

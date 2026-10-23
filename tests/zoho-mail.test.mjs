@@ -28,7 +28,7 @@ test('refreshes a token, caches it, and sends the message',async()=>{
 });
 test('a 401 triggers one refresh and one retry',async()=>{
  const db=makeDb();let sends=0,tokens=0;
- const f=fakeFetch(url=>{if(url.includes('/oauth/')){tokens++;return json({access_token:'AT'+tokens});}sends++;return sends===1?json({},401):json({});});
+ const f=fakeFetch(url=>{if(url.includes('/oauth/')){tokens++;return json({access_token:'AT'+tokens});}sends++;return sends===1?json({},401):json({status:{code:200}});});
  await sendLoginCode(env,db,f,'u@example.com','1',0);
  assert.equal(sends,2);assert.equal(tokens,2);
 });
@@ -38,6 +38,7 @@ test('failures throw: bad token reply, http error, error in 200 body, missing co
  const good=url=>url.includes('/oauth/')?json({access_token:'AT'}):null;
  await assert.rejects(sendLoginCode(env,makeDb(),fakeFetch(u=>good(u)||json({},500)),'u@example.com','1',0),/send failed/);
  await assert.rejects(sendLoginCode(env,makeDb(),fakeFetch(u=>good(u)||json({status:{code:500}})),'u@example.com','1',0),/send failed/);
+ await assert.rejects(sendLoginCode(env,makeDb(),fakeFetch(u=>good(u)||json({})),'u@example.com','1',0),/send failed/);
  await assert.rejects(sendLoginCode({},makeDb(),fakeFetch(()=>json({})),'u@example.com','1',0),/not configured/);
  await assert.rejects(sendLoginCode({...env,ZOHO_ACCOUNT_ID:'../x'},makeDb(),fakeFetch(()=>json({})),'u@example.com','1',0),/invalid/);
  await assert.rejects(sendLoginCode({...env,ZOHO_MAIL_URL:'https://evil.example'},makeDb(),fakeFetch(u=>good(u)||json({})),'u@example.com','1',0),/not allowed/);

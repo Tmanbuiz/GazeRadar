@@ -16,5 +16,7 @@ test('deployment resolves an inherited DB ID before running remote migrations',(
  const result=spawnSync(process.execPath,['--import',join(root,'mock-api.mjs'),join(root,'scripts/deploy-cloudflare.mjs')],{encoding:'utf8',env:{...process.env,CLOUDFLARE_ACCOUNT_ID:'11111111111111111111111111111111',CLOUDFLARE_API_TOKEN:'test-only-token'}});
  assert.equal(result.status,0,result.stderr);assert.equal(readFileSync(join(root,'migrated'),'utf8'),'ok');
  assert.ok(!readFileSync(join(root,'dist/server/wrangler.json'),'utf8').includes('test-only-token'));
+ const savedConfig=JSON.parse(readFileSync(join(root,'dist/server/wrangler.json'),'utf8'));
+ assert.equal(savedConfig.d1_databases[0].migrations_dir,join(root,'drizzle'));
  }finally{rmSync(root,{recursive:true,force:true});}
 });

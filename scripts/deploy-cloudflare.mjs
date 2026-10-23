@@ -50,5 +50,9 @@ if (!deployedBinding.database_id) {
   writeFileSync(configPath, JSON.stringify(config, null, 2) + '\n');
   console.log('Resolved the deployed DB binding for migrations.');
 }
+// The Vite output lives in dist/server. Resolve source migrations explicitly so
+// Wrangler does not look for a non-existent dist/server/drizzle directory.
+config.d1_databases.find(item => item.binding === 'DB').migrations_dir = fileURLToPath(new URL('../drizzle', import.meta.url));
+writeFileSync(configPath, JSON.stringify(config, null, 2) + '\n');
 run(['d1', 'migrations', 'apply', 'DB', '--remote', '--config', configPath]);
 console.log('GazeRadar Worker deployed and D1 migrations applied.');

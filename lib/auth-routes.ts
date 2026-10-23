@@ -1,6 +1,6 @@
 import {env} from 'cloudflare:workers';
 import {LoginError,SESSION_COOKIE,clearedCookie,endSession,normalizeEmail,readCookie,requestCode,sameOriginRequest,sessionCookie,verifyCode} from './login';
-import {sendLoginCode,verifyTurnstile} from './zoho-mail';
+import {sendLoginCode,verifyTurnstile,zohoConfigured} from './zoho-mail';
 import {identity} from './auth';
 
 export const clientIp=(req:Request)=>req.headers.get('cf-connecting-ip')||'unknown';
@@ -32,5 +32,5 @@ export async function handleLogout(req:Request){try{
 
 export async function handleMe(req:Request){
  const who=await identity(req.headers);
- return json({signedIn:!!who,email:who?.email??null,turnstileSiteKey:env.TURNSTILE_SITE_KEY||null,emailSignIn:!!(env.AUTH_SECRET&&env.TURNSTILE_SECRET&&env.TURNSTILE_SITE_KEY)});
+ return json({signedIn:!!who,email:who?.email??null,turnstileSiteKey:env.TURNSTILE_SITE_KEY||null,emailSignIn:!!(env.AUTH_SECRET&&env.TURNSTILE_SECRET&&env.TURNSTILE_SITE_KEY&&zohoConfigured(env))});
 }
