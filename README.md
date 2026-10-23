@@ -4,7 +4,7 @@ An original, private careers-page monitoring MVP inspired by changedetection.io.
 
 ## Available now
 
-- Cloudflare Access identity and owner-scoped persistent D1 watches and events.
+- Sign-in by emailed one-time code (anyone can register with an email) or Cloudflare Access, with owner-scoped persistent D1 watches and events.
 - Add a public HTTPS HTML/text page and optional comma-separated keyword phrases.
 - Manual checks, baseline comparison, an in-app alert inbox, pause/resume, search, and deletion.
 - First successful check establishes a baseline; later checks report new lines matching the keywords (case insensitive). Empty keywords match all new text. Changes are not verified job listings.
@@ -17,7 +17,7 @@ An original, private careers-page monitoring MVP inspired by changedetection.io.
 
 ## Not yet connected
 
-Unattended checking and email delivery. The app visibly labels both as unavailable. No emails are sent and no automatic schedules are installed. JavaScript rendering, PDF parsing, authenticated external pages, integrations with job boards, and extraction of individual verified jobs are outside this version.
+Unattended checking and alert email delivery. The app visibly labels both as unavailable. The only email the app sends is the sign-in code, and no automatic schedules are installed. JavaScript rendering, PDF parsing, authenticated external pages, integrations with job boards, and extraction of individual verified jobs are outside this version.
 
 ## Development
 
@@ -42,12 +42,29 @@ Cloudflare Workers Builds settings:
 
 `wrangler.json` declares the Worker and D1 binding. Wrangler provisions or reuses the linked database. The deployment script resolves the DB binding from the deployed Worker settings if needed, then applies the migrations. The build token needs Worker and D1 permissions. Tokens must remain in Cloudflare build settings.
 
-## Account sign-in with Cloudflare Access
+## Account sign-in with an emailed code
+
+Visitors enter an email address, receive a 6-digit code from gazeradar@wiantribe.com, and enter it. The first successful code creates the account; there are no passwords.
+
+- Code: random, stored only as an HMAC, valid 10 minutes, single use, 5 wrong tries then locked. Sessions are a random token in a `__Host-gz_session` cookie (HttpOnly, Secure, SameSite=Lax, 30 days); only a hash of it is stored. All changing requests must come from this site's own origin.
+- Abuse limits: Cloudflare Turnstile on every code request, 60 seconds between codes to one address, 5 codes per address and 10 per IP per hour, 300 emails a day in total.
+- The response never reveals whether an address already has an account.
+- Mail goes through the Zoho Mail API with OAuth (Canada data centre by default). The app only talks to real Zoho hosts.
+
+Set up (security settings, done by the site owner in their own accounts):
+
+1. Zoho API Console (same region as your mailbox): create a Self Client, then generate a grant code with scope `ZohoMail.messages.CREATE,ZohoMail.accounts.READ`, signed in as gazeradar@wiantribe.com.
+2. On your computer run `ZOHO_CLIENT_ID=... ZOHO_CLIENT_SECRET=... ZOHO_GRANT_CODE=... node scripts/zoho-oauth-setup.mjs`. It prints the refresh token and the mail account id.
+3. Cloudflare > Turnstile: create a widget for gazeradar.wiantribe.com (and the workers.dev address if you use it).
+4. Worker > Settings > Variables and Secrets. Secrets: `ZOHO_CLIENT_ID`, `ZOHO_CLIENT_SECRET`, `ZOHO_REFRESH_TOKEN`, `AUTH_SECRET` (any long random string), `TURNSTILE_SECRET`. Plain variables: `ZOHO_ACCOUNT_ID`, `ZOHO_FROM` (gazeradar@wiantribe.com), `TURNSTILE_SITE_KEY`. For other Zoho regions also set `ZOHO_ACCOUNTS_URL` and `ZOHO_MAIL_URL` (for example `https://accounts.zoho.com` and `https://mail.zoho.com`).
+5. Until `AUTH_SECRET`, `TURNSTILE_SECRET` and `TURNSTILE_SITE_KEY` are all set the sign-in dialog says email sign-in is not set up, and no email is sent.
+
+## Account sign-in with Cloudflare Access (optional second path)
 
 1. Protect the Worker hostname with a Cloudflare Access application in your own account. Configure an allow policy for the people who should use it.
 2. In the Worker runtime variables, set `CF_ACCESS_TEAM_DOMAIN` to your team hostname, for example `my-team.cloudflareaccess.com` (no `https://`), and `CF_ACCESS_AUD` to the application's audience tag. These are configuration identifiers, not passwords. `keep_vars` preserves dashboard variables on deployment.
 3. Sign in through Access. The app verifies the token's RSA signature, issuer, application audience, expiry and subject against your team's public signing keys. It never trusts client-supplied user-ID headers.
 
-Until Access is configured, the UI remains a preview and private record operations reject unauthenticated requests. Authentication is not configured or verified in the user's Cloudflare account from this environment. Existing records keyed under an earlier identity are not silently reassigned.
+Without a valid email session or Access token, the UI remains a preview and private record operations reject the request. Authentication is not configured or verified in the user's Cloudflare account from this environment. Existing records keyed under an earlier identity are not silently reassigned.
 
 Reference: https://developers.cloudflare.com/cloudflare-one/access-controls/applications/http-apps/authorization-cookie/validating-json/
