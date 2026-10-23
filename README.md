@@ -31,7 +31,7 @@ Connect a dedicated monitoring backend (changedetection.io or a job queue with b
 
 Source: https://github.com/Tmanbuiz/GazeRadar
 
-Live address: https://gazeradar.atoyejet.workers.dev
+Live address: https://gazeradar.wiantribe.com (custom domain on the `gazeradar` Worker, declared in `wrangler.json` under `routes`; the `wiantribe.com` zone must stay in the same Cloudflare account). The default `https://gazeradar.atoyejet.workers.dev` address also reaches the same Worker. Cover every address you leave enabled with the Access application, or turn the workers.dev address off in the Worker's Domains settings.
 
 The previous ChatGPT-hosted Site was deleted at the owner's request. Do not publish this project through ChatGPT Sites or reintroduce its hosting configuration, connector services, identity headers or sign-in links.
 
