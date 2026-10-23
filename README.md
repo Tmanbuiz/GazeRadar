@@ -39,7 +39,7 @@ Cloudflare Workers Builds settings:
 - Build command: `pnpm run build`
 - Deploy command: `pnpm run deploy`
 
-Wrangler 4.45+ can provision D1 when `database_id` is omitted. The Vite config declares `gazeradar-db` and the `DB` binding, without an account-specific placeholder. The deploy script publishes the Worker, then applies migrations to its provisioned database using the generated config. Future deploys reuse the linked resource. Your build token needs Worker deployment and D1 permissions. The build command alone does not create a remote database.
+Wrangler 4.45+ can provision D1 when `database_id` is omitted. The Vite config declares `gazeradar-db` and the `DB` binding, without an account-specific placeholder. The deploy script publishes the Worker, resolves the actual DB binding from the deployed Worker settings when its ID was not written back locally, then applies migrations to that exact database using the generated config. Future deploys reuse the linked resource. Your build token needs Worker deployment and D1 permissions. The build command alone does not create a remote database.
 
 The first deployment may briefly serve the UI before its tables exist. If schema migration fails, the deploy command fails and reports it; rerun after fixing the migration or permissions.
 
