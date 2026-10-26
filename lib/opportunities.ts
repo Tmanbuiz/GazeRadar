@@ -1,3 +1,4 @@
+import {listingUrl} from './listing-url.ts';
 import type {Home, Job} from './matching.ts';
 
 export const DISCOVERY_HISTORY_LIMIT = 200;
@@ -47,11 +48,43 @@ export async function listOpportunityRows(db:D1Database, owner:string, kind:stri
   FROM opportunities o JOIN watches w ON w.id=o.watch_id AND w.owner=o.owner
   WHERE o.owner=? AND o.category=? ORDER BY o.updated DESC LIMIT 500`)
   .bind(owner,kind).all<OpportunityRow & {chosen_state:OpportunityState}>();
- return rows.results.map(({chosen_state,...row})=>({...row,state:chosen_state}));
+ const normalized=rows.results.map(({chosen_state,...row})=>({...row,state:chosen_state}));
+ if(kind!=='housing')return normalized;
+ const grouped=new Map<string,OpportunityRow>();
+ const rank={applied:3,saved:2,dismissed:1,new:0};
+ for(const row of normalized){
+  try{
+   const home=JSON.parse(row.content) as Home;
+   row.url=listingUrl(row.url,row.url);home.url=row.url;
+   const previous=grouped.get(row.url);
+   if(previous){
+    const details=JSON.parse(previous.content) as Home;
+    // Rows are newest first. Fill missing values without replacing current facts.
+    for(const key of Object.keys(home) as (keyof Home)[]){
+     const value=details[key];
+     if(value===null||value===''||value==='unknown'||Array.isArray(value)&&!value.length)
+      Object.assign(details,{[key]:home[key]});
+    }
+    previous.content=JSON.stringify(details);
+    if(rank[row.state]>rank[previous.state])previous.state=row.state;
+    previous.available=Math.max(previous.available,row.available);
+   }else{row.content=JSON.stringify(home);grouped.set(row.url,row);}
+  }catch{grouped.set(row.url,row);}
+ }
+ return [...grouped.values()];
 }
 
 export async function updateOpportunityState(db:D1Database, owner:string, id:string, state:OpportunityState) {
  if(!opportunityStates.includes(state))throw new Error('Choose a valid saved-item status.');
+ const target=await db.prepare('SELECT url,category FROM opportunities WHERE id=? AND owner=?').bind(id,owner).first<{url:string;category:string}>();
+ if(target?.category==='housing'){
+  const canonical=listingUrl(target.url,target.url);
+  const copies=await db.prepare("SELECT id,url FROM opportunities WHERE owner=? AND category='housing'").bind(owner).all<{id:string;url:string}>();
+  const statements=copies.results.filter(r=>{try{return listingUrl(r.url,r.url)===canonical;}catch{return false;}})
+   .map(r=>db.prepare('UPDATE opportunities SET state=? WHERE id=? AND owner=?').bind(state,r.id,owner));
+  if(statements.length)await db.batch(statements);
+  return;
+ }
  await db.prepare(`UPDATE opportunities SET state=? WHERE owner=?
   AND url=(SELECT url FROM opportunities WHERE id=? AND owner=?)`)
   .bind(state,owner,id,owner).run();

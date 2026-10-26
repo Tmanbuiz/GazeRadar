@@ -63,3 +63,21 @@ test('job source redirects are rejected without following another host',async()=
  }),/returned 302/);
  assert.equal(calls,1);
 });
+
+test('scheme-less publisher links and nested residences produce one complete house',()=>{
+ const base='https://www.royallepage.ca/en/property/example/123/';
+ const residence={'@type':'House',address:{streetAddress:'123 Example',addressLocality:'Fredericton'},numberOfBedrooms:3};
+ const listing={'@type':'RealEstateListing',url:'www.royallepage.ca/en/property/example/123',name:'123 Example',offers:{price:364900,priceCurrency:'CAD'},mainEntity:residence};
+ const result=structuredListings(`<script type="application/ld+json">${JSON.stringify(listing)}</script>`,base);
+ assert.equal(result.homes.length,1);
+ assert.equal(result.homes[0].url,base.slice(0,-1));
+ assert.equal(result.homes[0].price,364900);
+ assert.equal(result.homes[0].bedrooms,3);
+});
+
+test('nested houses inherit their enclosing listing identity on search pages',()=>{
+ const listings=[1,2].map(n=>({'@type':'RealEstateListing',url:`/homes/${n}`,offers:{price:400000+n},about:{'@type':'House',name:`Home ${n}`,numberOfBedrooms:n}}));
+ const result=structuredListings(`<script type="application/ld+json">${JSON.stringify(listings)}</script>`,'https://example.com/search');
+ assert.deepEqual(result.homes.map(h=>h.url),['https://example.com/homes/1','https://example.com/homes/2']);
+ assert.deepEqual(result.homes.map(h=>h.bedrooms),[1,2]);
+});

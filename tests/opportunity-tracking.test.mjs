@@ -122,3 +122,23 @@ test('a matching job returning unchanged also creates one source-return alert',a
  assert.equal((await run(db,'jobs',[job('a'),job('b')],2)).changes,1);
  assert.equal((await run(db,'jobs',[job('a'),job('b')],3)).changes,0);
 });
+
+test('legacy duplicated-host property rows merge without losing price or saved choices',async t=>{
+ const db=makeDb();t.after(()=>db.raw.close());await addWatch(db,'legacy');
+ const canonical='https://example.com/homes/123';
+ const malformed=canonical+'/example.com/homes/123';
+ await run(db,'legacy',[{...home(123),url:malformed},{...home(123),url:canonical+'/',price:null}],0);
+ const old=await rowFor(db,'legacy',malformed);
+ await db.prepare("UPDATE opportunities SET state='saved' WHERE id=?").bind(old.id).run();
+ let rows=await listOpportunityRows(db,owner,'housing');
+ assert.equal(rows.length,1);assert.equal(rows[0].url,canonical);
+ assert.equal(JSON.parse(rows[0].content).price,400000);
+ assert.equal(JSON.parse(rows[0].content).url,canonical);
+ assert.equal(rows[0].state,'saved');
+ await updateOpportunityState(db,owner,rows[0].id,'dismissed');
+ assert.ok((await db.prepare('SELECT state FROM opportunities WHERE owner=?').bind(owner).all()).results.every(r=>r.state==='dismissed'));
+ await run(db,'legacy',[{...home(123),url:canonical,price:390000}],1);
+ rows=await listOpportunityRows(db,owner,'housing');
+ assert.equal(rows.length,1);assert.equal(JSON.parse(rows[0].content).price,390000);
+ assert.equal(rows[0].state,'dismissed');
+});

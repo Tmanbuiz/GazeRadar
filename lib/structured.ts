@@ -1,11 +1,12 @@
-import {pageLines,validUrl} from './monitor.ts';
+import {listingUrl} from './listing-url.ts';
+import {pageLines} from './monitor.ts';
 import type {Home,Job} from './matching.ts';
 type Obj=Record<string,unknown>;
 const object=(x:unknown):Obj=>x&&typeof x==='object'&&!Array.isArray(x)?x as Obj:{};
 const str=(x:unknown,max=12000)=>typeof x==='string'?x.trim().slice(0,max):'';
 const num=(x:unknown):number|null=>{if(x===null||x===undefined||x==='')return null;const n=Number(x);return Number.isFinite(n)&&n>=0?n:null;};
 const list=(x:unknown):unknown[]=>Array.isArray(x)?x:x?[x]:[];
-function url(x:unknown,base:string):string {try{return validUrl(new URL(str(x,2000)||base,base).toString());}catch{return base;}}
+function url(x:unknown,base:string):string {try{return listingUrl(str(x,2000),base);}catch{return base;}}
 function address(x:unknown):string {if(typeof x==='string')return str(x,300);const a=object(x);return [...new Set(['streetAddress','addressLocality','addressRegion','postalCode','addressCountry'].map(k=>typeof a[k]==='string'?str(a[k],100):str(object(a[k]).name,100)).filter(Boolean))].join(', ');}
 const text=(x:unknown)=>pageLines(`<p>${str(x)}</p>`).join('\n');
 function kind(x:Obj):string[]{return list(x['@type']).filter(t=>typeof t==='string') as string[];}
@@ -13,6 +14,7 @@ export function structuredListings(html:string,base:string):{jobs:Job[];homes:Ho
  const nodes:Obj[]=[];let visited=0,capped=false;
  function walk(v:unknown,depth=0){if(depth>12||visited++>4000){capped=true;return;}if(Array.isArray(v)){if(v.length>200)capped=true;for(const x of v.slice(0,200))walk(x,depth+1);return;}if(!v||typeof v!=='object')return;const o=object(v);if(o['@type'])nodes.push(o);for(const [k,x]of Object.entries(o))if(k!=='description')walk(x,depth+1);}
  for(const m of html.matchAll(/<script\b[^>]*type\s*=\s*["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi)){try{walk(JSON.parse(m[1]));}catch{}}
+ const nested=new Set(nodes.flatMap(o=>kind(o).includes('RealEstateListing')?[object(o.about),object(o.mainEntity)]:[]));
  const jobs:Job[]=[],homes:Home[]=[];
  for(const o of nodes){
   const types=kind(o);
@@ -21,7 +23,7 @@ export function structuredListings(html:string,base:string):{jobs:Job[];homes:Ho
    const loc=list(o.jobLocation).map(x=>address(object(x).address)).filter(Boolean).join('; ');
    jobs.push({url:url(o.url??o['@id'],base),title:str(o.title,200)||'Job posting',company:str(object(o.hiringOrganization).name,200),location:loc,description:text(o.description),employment:list(o.employmentType).map(x=>str(x,100)).join(', '),remote:list(o.jobLocationType).some(x=>String(x).toUpperCase()==='TELECOMMUTE'),salary:num(v.minValue??v.value??s.value),salaryUnit:str(v.unitText,20).toUpperCase(),currency:str(s.currency,10).toUpperCase(),expires:str(o.validThrough,50)||null});
   }
-  if(types.some(t=>['RealEstateListing','SingleFamilyResidence','Apartment','House','Residence','Accommodation'].includes(t))){
+  if(!nested.has(o)&&types.some(t=>['RealEstateListing','SingleFamilyResidence','Apartment','House','Residence','Accommodation'].includes(t))){
    const about=object(o.about??o.mainEntity);const residence=Object.keys(about).length?about:o;
    const offers=object(list(o.offers??residence.offers)[0]);const spec=object(offers.priceSpecification);
    const rawStatus=str(offers.availability,100).split('/').pop()||str(o.status,100);
