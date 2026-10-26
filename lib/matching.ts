@@ -35,9 +35,21 @@ export function matchJob(j:Job,p:JobProfile,now=Date.now()):Match {
  if(p.workMode==='onsite'&&j.remote){relevant=false;review.push('Remote role rather than your on-site preference.');}
  if(p.employment.length&&j.employment&&!p.employment.some(t=>j.employment.toLowerCase().replace(/[_-]/g,' ').includes(t.toLowerCase().replace(/[_-]/g,' '))))relevant=false;
  if(p.minimumSalary!==null){
-  if(j.salary!==null&&j.currency==='CAD'&&/^year$/i.test(j.salaryUnit)){if(j.salary<p.minimumSalary)relevant=false;else reasons.push('Published annual CAD salary meets your minimum.');}
-  else review.push('Annual CAD salary is unavailable; check pay with the employer.');
+  const wanted=p.salaryPeriod??'YEAR',unit=j.salaryUnit.toUpperCase();
+  const hours=p.hoursPerWeek??40;
+  const factors:Record<string,number>={HOUR:hours*52,MONTH:12,YEAR:1};
+  const valid=j.salary!==null&&Number.isFinite(j.salary)&&j.salary>=0&&j.currency==='CAD'&&unit in factors;
+  if(valid){
+   const comparable=j.salary!*factors[unit]/factors[wanted];
+   if(p.salaryStrict?comparable<=p.minimumSalary:comparable<p.minimumSalary){relevant=false;review.push('Published CAD pay is below your selected requirement.');}
+   else reasons.push(`Published CAD pay meets your ${{HOUR:'hourly',MONTH:'monthly',YEAR:'annual'}[wanted]} minimum.`);
+   if(unit!==wanted)review.push(`Pay comparison converts ${unit.toLowerCase()} to ${wanted.toLowerCase()}; hourly conversions assume ${hours} hours/week and 52 weeks/year. Actual hours and paid weeks may differ.`);
+  }else{
+   if(p.excludeUnknownSalary)relevant=false;
+   review.push(`Comparable CAD salary is unavailable; ${p.excludeUnknownSalary?'excluded by your pay filter':'check pay with the employer'}.`);
+  }
  }
+
  const unlisted=skillTerms.filter(s=>hasTerm(j.description,s)&&!p.skills.some(x=>x.toLowerCase()===s.toLowerCase()));
  if(unlisted.length)review.push(`Also mentioned in the posting: ${unlisted.slice(0,5).join(', ')}. Review whether these are required.`);
  review.push('Rule-based suggestion. Review qualifications, work eligibility and the original posting.');

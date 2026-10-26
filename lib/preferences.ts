@@ -3,11 +3,11 @@ export type Category = typeof categories[number];
 export const intervals = [1, 6, 12, 24, 168];
 export const frequencies = ['off', 'change', 'daily', 'weekly'] as const;
 export type Frequency = typeof frequencies[number];
-export type JobProfile = { skills:string[]; titles:string[]; locations:string[]; workMode:'any'|'remote'|'hybrid'|'onsite'; employment:string[]; minimumSalary:number|null };
+export type JobProfile = { skills:string[]; titles:string[]; locations:string[]; workMode:'any'|'remote'|'hybrid'|'onsite'; employment:string[]; minimumSalary:number|null; salaryPeriod?:'HOUR'|'MONTH'|'YEAR'; hoursPerWeek?:number; excludeUnknownSalary?:boolean; salaryStrict?:boolean };
 export type HousingProfile = { mode:'any'|'rent'|'buy'; locations:string[]; maximumPrice:number|null; bedrooms:number|null; propertyType:string };
 export type WatchOptions = { price:boolean; status:boolean; details:boolean; openHouse:boolean; photos:boolean };
 export const defaultOptions:WatchOptions = {price:true,status:true,details:true,openHouse:true,photos:false};
-export const emptyJobs:JobProfile = {skills:[],titles:[],locations:[],workMode:'any',employment:[],minimumSalary:null};
+export const emptyJobs:JobProfile = {skills:[],titles:[],locations:[],workMode:'any',employment:[],minimumSalary:null,salaryPeriod:'YEAR',hoursPerWeek:40,excludeUnknownSalary:false,salaryStrict:false};
 export const emptyHousing:HousingProfile = {mode:'any',locations:[],maximumPrice:null,bedrooms:null,propertyType:''};
 export function jsonValue<T>(raw:string|null|undefined, fallback:T):T {try{return raw?JSON.parse(raw) as T:fallback;}catch{return fallback;}}
 function strings(v:unknown, max:number, length=70):string[] {
@@ -19,8 +19,11 @@ function positive(v:unknown,max:number):number|null {
  const n=Number(v);if(!Number.isFinite(n)||n<0||n>max)throw new Error('Enter a valid amount.');return n;
 }
 export function jobProfile(v:Record<string,unknown>):JobProfile {
+ const salaryPeriod=v.salaryPeriod??'YEAR';if(!['HOUR','MONTH','YEAR'].includes(String(salaryPeriod)))throw new Error('Choose hourly, monthly or annual pay.');
+ const hoursPerWeek=v.hoursPerWeek??40;if(typeof hoursPerWeek!=='number'||!Number.isFinite(hoursPerWeek)||hoursPerWeek<=0||hoursPerWeek>168)throw new Error('Enter weekly hours between 0 and 168.');
+ for(const key of ['excludeUnknownSalary','salaryStrict'])if(v[key]!==undefined&&typeof v[key]!=='boolean')throw new Error('Choose a valid pay filter.');
  const workMode=v.workMode??'any';if(!['any','remote','hybrid','onsite'].includes(String(workMode)))throw new Error('Choose a work preference.');
- return {skills:strings(v.skills??[],30),titles:strings(v.titles??[],8),locations:strings(v.locations??[],8),workMode:workMode as JobProfile['workMode'],employment:strings(v.employment??[],5),minimumSalary:positive(v.minimumSalary,2000000)};
+ return {skills:strings(v.skills??[],30),titles:strings(v.titles??[],8),locations:strings(v.locations??[],8),workMode:workMode as JobProfile['workMode'],employment:strings(v.employment??[],5),minimumSalary:positive(v.minimumSalary,2000000),salaryPeriod:salaryPeriod as JobProfile['salaryPeriod'],hoursPerWeek,excludeUnknownSalary:v.excludeUnknownSalary===true,salaryStrict:v.salaryStrict===true};
 }
 export function housingProfile(v:Record<string,unknown>):HousingProfile {
  const mode=v.mode??'any';if(!['any','rent','buy'].includes(String(mode)))throw new Error('Choose rent or buy.');

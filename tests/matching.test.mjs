@@ -81,3 +81,37 @@ test('nested houses inherit their enclosing listing identity on search pages',()
  assert.deepEqual(result.homes.map(h=>h.url),['https://example.com/homes/1','https://example.com/homes/2']);
  assert.deepEqual(result.homes.map(h=>h.bedrooms),[1,2]);
 });
+
+test('hourly CAD salary filters support inclusive and strictly-above thresholds',()=>{
+ const profile={...emptyJobs,minimumSalary:24,salaryPeriod:'HOUR'};
+ const hourly={...job,salaryUnit:'HOUR',salary:24};
+ assert.equal(matchJob(hourly,profile).relevant,true);
+ assert.equal(matchJob(hourly,{...profile,salaryStrict:true}).relevant,false);
+ assert.equal(matchJob({...hourly,salary:24.01},{...profile,salaryStrict:true}).relevant,true);
+ assert.equal(matchJob({...hourly,salary:23.99},profile).relevant,false);
+});
+
+test('salary conversion uses chosen weekly hours, monthly periods, and legacy annual defaults',()=>{
+ const hourly={...job,salaryUnit:'HOUR',salary:24};
+ assert.equal(matchJob(hourly,{...emptyJobs,minimumSalary:49920}).relevant,true);
+ assert.equal(matchJob(hourly,{...emptyJobs,minimumSalary:49920,hoursPerWeek:30}).relevant,false);
+ const profile={...emptyJobs,minimumSalary:4000,salaryPeriod:'MONTH'};
+ assert.equal(matchJob({...job,salary:48000},profile).relevant,true);
+ assert.equal(matchJob({...job,salary:47999},profile).relevant,false);
+ assert.match(matchJob(hourly,{...emptyJobs,minimumSalary:40000,hoursPerWeek:35}).review.join(' '),/35 hours/);
+});
+
+test('unknown pay exclusion never treats foreign currency or unsupported units as comparable CAD',()=>{
+ const profile={...emptyJobs,minimumSalary:24,salaryPeriod:'HOUR',excludeUnknownSalary:true};
+ for(const fields of [{salary:null},{currency:'USD'},{salaryUnit:'DAY'},{salaryUnit:''}]){
+  assert.equal(matchJob({...job,...fields},profile).relevant,false);
+  assert.equal(matchJob({...job,...fields},{...profile,excludeUnknownSalary:false}).relevant,true);
+ }
+ assert.equal(matchJob({...job,salary:null},{...profile,minimumSalary:null}).relevant,true);
+});
+
+test('pay preferences validate new fields and retain legacy annual interpretation',()=>{
+ assert.equal(jobProfile({minimumSalary:50000}).salaryPeriod,'YEAR');
+ assert.equal(jobProfile({salaryPeriod:'HOUR',minimumSalary:24.01,excludeUnknownSalary:true}).minimumSalary,24.01);
+ for(const invalid of [{salaryPeriod:'DAY'},{hoursPerWeek:0},{hoursPerWeek:169},{hoursPerWeek:'40'},{salaryStrict:'true'},{excludeUnknownSalary:1}])assert.throws(()=>jobProfile(invalid));
+});
