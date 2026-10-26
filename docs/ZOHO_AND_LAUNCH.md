@@ -37,6 +37,10 @@ Under the Worker’s triggers/scheduled events, verify the cron `*/15 * * * *`. 
 
 ## 3. Verify sign-in and actual email
 
+Before requesting a code, open `https://gazeradar.wiantribe.com/api/auth/me` while signed out. It should report a non-empty `turnstileSiteKey` and `emailSignIn: true`. A null site key means `TURNSTILE_SITE_KEY` is absent from the live Worker runtime. A false sign-in flag means at least one of the required `AUTH_SECRET`, Turnstile or Zoho values is missing; it does not identify which other credentials are missing or invalid. Set the values in the Worker's runtime **Variables and Secrets**, not only in build variables, and deploy those settings. Use a matching Turnstile site-key/secret pair with the GazeRadar hostname enabled. Do not remove these checks or substitute an unverified shared account to make the flag true.
+
+The availability flag checks configuration presence only. An actual sign-in code and its receipt are still required to validate the credentials and mailbox delivery.
+
 1. Sign in using an email code. This verifies the recipient and exercises Zoho sending.
 2. Open **Settings**. Verify that it shows your sign-in address, a configured Zoho adapter and eventually a real scheduler timestamp.
 3. Save **When a change is detected** as the email frequency.

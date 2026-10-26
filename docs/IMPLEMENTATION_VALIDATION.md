@@ -23,3 +23,11 @@ The pinned Wrangler/Miniflare version returned `exception` when its local schedu
 Accessibility source inspection uses the project's existing native controls, explicit form labels, focus styles, native dialogs, deletion confirmations and existing reduced-motion treatment. It is not a complete rendered accessibility audit. Narrow widths, 200% zoom, screen readers, focus traversal and computed contrast still need browser verification.
 
 Remaining release tasks: apply the documented Cloudflare/Zoho settings, deploy, verify the actual cron heartbeat and receipt of a controlled-change email, then complete browser testing including real CV files. See [Zoho and launch checks](ZOHO_AND_LAUNCH.md).
+
+## Tracking fixes — 2026-10-26
+
+Fixed the historical-record ceiling that silently rejected new discoveries, state resets when a second source discovered an already saved/applied/dismissed URL, and missing alerts when an unchanged retained listing returned to complete source data. Automatic discovery history rolls at 200 records per watch; explicit user choices are preserved outside that limit. No schema changes or new migrations are required.
+
+Validation: all 77 tests passed, including 11 new regression tests using the real migration SQL. The regressions cover 500 consecutive discoveries, partial-source handling, preserved user choices, duplicate legacy records, account isolation, one-time return alerts and status-alert preferences. `pnpm run build`, `pnpm exec tsc --noEmit` and ESLint on the changed application/test modules passed.
+
+Read-only live checks still returned `turnstileSiteKey: null` and `emailSignIn: false`. Wrangler reported no authenticated Cloudflare account in this workspace. The runtime settings cannot be completed from here; presence of the Zoho credentials, receipt of an actual sign-in email, deployment of these changes and the live cron remain unverified. Authentication protections were preserved. The launch guide now explains how to distinguish runtime settings from build variables and verify sign-in availability before testing email.

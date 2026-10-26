@@ -3,6 +3,7 @@ import {readSource,type SourcePage} from './sources.ts';
 import {matchHome,matchJob,type Home,type Job} from './matching.ts';
 import {emptyHousing,emptyJobs,jsonValue,watchOptions,type HousingProfile,type JobProfile} from './preferences.ts';
 import {propertyChanges} from './structured.ts';
+import {storeOpportunity,trimOpportunityHistory} from './opportunities.ts';
 export type WatchRow={id:string;owner:string;name:string;url:string;keywords:string;active:number;snapshot:string|null;checked:number|null;checking:number;last_ok:number|null;fail_count:number;category:string;interval_hours:number;options:string;property_snapshot:string|null};
 type Deps={db:D1Database;watch:WatchRow;now?:number;read?:(url:string,category:string)=>Promise<SourcePage>};
 type Result={message:string;baseline:boolean;changes:number;truncated:boolean};
@@ -28,15 +29,16 @@ export async function checkWatch({db,watch:w,now=Date.now(),read=readSource}:Dep
    const byUrl=new Map(old.results.map(x=>[x.url,x]));
    const jobs=await profile<JobProfile>(db,w.owner,'jobs',emptyJobs),housing=await profile<HousingProfile>(db,w.owner,'housing',emptyHousing);
    const records=w.category==='jobs'?page.jobs:page.homes;
-   let stored=old.results.length;
    for(const r of records){
     const existing=byUrl.get(r.url),hash=fingerprint(r);
     const match=w.category==='jobs'?matchJob(r as Job,jobs,now):matchHome(r as Home,housing);
-    if(!existing&&stored>=200)continue;if(!existing)stored++;
-    statements.push(db.prepare('INSERT INTO opportunities (id,owner,watch_id,category,url,name,content,fingerprint,available,created,updated) VALUES (?,?,?,?,?,?,?,?,1,?,?) ON CONFLICT(id) DO UPDATE SET name=excluded.name,content=excluded.content,fingerprint=excluded.fingerprint,available=1,updated=excluded.updated')
-     .bind(existing?.id??crypto.randomUUID(),w.owner,w.id,w.category,r.url,r.title,JSON.stringify(r),hash,now,now));
+    statements.push(storeOpportunity(db,w,r,existing?.id??crypto.randomUUID(),hash,now));
     if(!existing&&match.relevant)changes.push({t:`New ${w.category==='jobs'?'job':'property'} match: ${r.title}. ${match.reasons.join(' ')}`,h:r.url});
-    else if(existing&&existing.fingerprint!==hash){
+    if(existing&&!existing.available){
+     if(w.category==='housing'&&options.status)changes.push({t:`${r.title}: The property is present in this source again. Review the original listing for its current availability.`,h:r.url});
+     else if(w.category==='jobs'&&match.relevant)changes.push({t:`Job posting is present in this source again: ${r.title}. Review the employer's current details.`,h:r.url});
+    }
+    if(existing&&existing.fingerprint!==hash){
      if(w.category==='housing')for(const t of propertyChanges(jsonValue(existing.content,r) as Home,r as Home,options))changes.push({t:`${r.title}: ${t}`,h:r.url});
      else if(match.relevant)changes.push({t:`Job posting updated: ${r.title}. Review the source for current details.`,h:r.url});
     }
@@ -48,6 +50,7 @@ export async function checkWatch({db,watch:w,now=Date.now(),read=readSource}:Dep
      if(w.category==='housing'&&options.status&&oldRow.available)changes.push({t:`A property is no longer present in this source’s latest complete listing data. This does not confirm a sale.`,h:oldRow.url});
     }
    }
+   statements.push(trimOpportunityHistory(db,w.owner,w.id));
   }else if(previous&&!major){
    let keywords=jsonValue<string[]>(w.keywords,[]);
    if(w.category==='jobs'&&!keywords.length){const p=await profile<JobProfile>(db,w.owner,'jobs',emptyJobs);keywords=[...p.titles,...p.skills];}

@@ -10,7 +10,7 @@ A personal opportunity desk for **Jobs, Housing and Any Website**. Source lives 
 - Review suggested skills/titles, preferred locations, work arrangement, employment type and minimum annual CAD salary. The skill vocabulary is intentionally limited and users can correct or supplement it. There is no paid AI dependency, CV tailoring, cover-letter generation or automatic application submission.
 - Add an employer's public Greenhouse or Lever **board** URL, or a readable careers/detail page. Official board read endpoints return individual jobs; HTML pages with `JobPosting` JSON-LD also produce jobs. Ordinary pages produce text-change alerts rather than invented job records.
 - Matches explain title/skill overlap, location, pay information and items to review. They use Strong match / Possible match / Stretch role rather than a fabricated percentage. Missing information is stated explicitly; qualifications and eligibility are never guaranteed.
-- Save, dismiss or mark jobs applied. Application links open the original source. A small source guide links to Job Bank and New Brunswick careers; these are browsing links, not inventory-feed integrations.
+- Save, dismiss or mark jobs applied. These choices follow the listing URL across sources in the same account, including sources added later. Application links open the original source. A small source guide links to Job Bank and New Brunswick careers; these are browsing links, not inventory-feed integrations.
 
 ### Housing
 
@@ -18,6 +18,7 @@ A personal opportunity desk for **Jobs, Housing and Any Website**. Source lives 
 - Add a specific house listing or public search page to the watchlist. Readable `RealEstateListing`, `House`, `Apartment` and related JSON-LD can produce property results. Price and status comparisons require explicit published data; ordinary pages yield text-change alerts.
 - Choose price, published status, description, open-house or photo-link changes. Photo comparisons concern links, not image downloads. Price comparisons require two known prices in the same currency. An existing tracked home's changes remain reportable even if its new price exceeds the search budget.
 - A 404/410 after a successful check creates one **Listing unavailable** alert, preserving the old baseline; it never claims that the home sold. A listing absent from complete source data is labelled absent from that source, not confirmed sold. Failure to extract details is a failed check, not a zero price or removal.
+- With status alerts enabled, a retained property returning after an absence from complete source data creates one source-return alert, even if its details are unchanged. The alert asks users to verify current availability; reappearance alone does not establish that it is back on the market. Partial source data never establishes an absence.
 - REALTOR.ca and Zillow links in the source guide do not imply partnership, authorised inventory access or guaranteed monitoring. A source that blocks access remains unsupported until a permitted integration is available; there is no bot-check bypass.
 
 ### Any Website and shared watchlist
@@ -43,7 +44,7 @@ The Worker exports a `scheduled` handler and `wrangler.json` installs `*/15 * * 
 
 ## Limits and source access
 
-20 watches/account; at least 60 seconds between manual checks; 18-second source timeout; 4 redirect attempts; HTML response up to 1 MB and 1,500 lines; provider JSON up to 4 MB, first 100 jobs (no pagination); structured data capped at 100 records/source; up to 200 stored discovered items/watch; 30 displayed lines/change alert; inbox shows latest 100 events and retains the newest 500 plus undelivered events. A truncated source never proves an old listing is absent. Legacy baselines remain readable.
+20 watches/account; at least 60 seconds between manual checks; 18-second source timeout; 4 redirect attempts; HTML response up to 1 MB and 1,500 lines; provider JSON up to 4 MB, first 100 jobs (no pagination); structured data capped at 100 records/source; 200 automatically retained discoveries/watch, plus items explicitly saved, applied or dismissed; 30 displayed lines/change alert; inbox shows latest 100 events and retains the newest 500 plus undelivered events. New discoveries are processed before older automatic history is trimmed, so filling the history does not stop future matches. Current source items take priority over absent history. An older, unsaved item outside that history may be treated as a new discovery if encountered again. A truncated source never proves an old listing is absent. Legacy baselines remain readable.
 
 CVs: up to 5 MB, PDFs up to 20 pages, text PDFs only. Scanned/image PDFs need manual entry; encrypted or malformed documents can fail. CV text is temporary browser memory. Saved job/housing profiles can be replaced/deleted. Deleting a watch also deletes its discovered items and alerts.
 
