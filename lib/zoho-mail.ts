@@ -50,7 +50,7 @@ async function accessToken(env: ZohoEnv, db: DB, f: typeof fetch, now: number, f
  stage = 'token_request';
  const res = await f(tokenUrl, {
   method: 'POST',
-  redirect:'error',signal:AbortSignal.timeout(20000),
+  redirect:'manual',signal:AbortSignal.timeout(20000),
   headers: { 'content-type': 'application/x-www-form-urlencoded' },
   body: new URLSearchParams({ grant_type: 'refresh_token', client_id: env.ZOHO_CLIENT_ID, client_secret: env.ZOHO_CLIENT_SECRET, refresh_token: env.ZOHO_REFRESH_TOKEN }).toString(),
  });
@@ -80,7 +80,7 @@ export async function sendMail(env: ZohoEnv, db: DB, f: typeof fetch, to: string
  let token = await accessToken(env, db, f, now, false);
  for (let attempt = 0; attempt < 2; attempt++) {
   stage = 'mail_request';
-  const res = await f(url, { method: 'POST', redirect:'error',signal:AbortSignal.timeout(20000), headers: { authorization: `Zoho-oauthtoken ${token}`, 'content-type': 'application/json', accept: 'application/json' }, body });
+  const res = await f(url, { method: 'POST', redirect:'manual',signal:AbortSignal.timeout(20000), headers: { authorization: `Zoho-oauthtoken ${token}`, 'content-type': 'application/json', accept: 'application/json' }, body });
   httpStatus = res.status;
   stage = 'mail_response';
   if (res.status === 401 && attempt === 0) { stage = 'token'; token = await accessToken(env, db, f, now, true); continue; }

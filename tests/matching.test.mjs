@@ -42,7 +42,7 @@ test('property alerts compare selected fields and never interpret a missing pric
 test('job source adapters use fixed providers and preserve direct job URLs',async()=>{
  assert.equal(jobFeed('https://jobs.lever.co/example').kind,'lever');assert.equal(jobFeed('https://job-boards.greenhouse.io/example').kind,'greenhouse');assert.equal(jobFeed('https://jobs.lever.co/example/123'),null);assert.equal(jobFeed('https://evil.example/jobs.lever.co/example'),null);
  const calls=[];const f=async(url,opts)=>{calls.push({url,opts});return Response.json({jobs:[{id:1,title:job.title,absolute_url:job.url,content:job.description,location:{name:job.location}}]});};
- const page=await readSource('https://job-boards.greenhouse.io/example','jobs',f);assert.equal(page.jobs.length,1);assert.equal(page.jobs[0].url,job.url);assert.equal(page.structured,true);assert.match(calls[0].url,/^https:\/\/boards-api.greenhouse.io/);assert.equal(calls[0].opts.redirect,'error');
+ const page=await readSource('https://job-boards.greenhouse.io/example','jobs',f);assert.equal(page.jobs.length,1);assert.equal(page.jobs[0].url,job.url);assert.equal(page.structured,true);assert.match(calls[0].url,/^https:\/\/boards-api.greenhouse.io/);assert.equal(calls[0].opts.redirect,'manual');
 });
 
 test('structured source caps are visible so partial data cannot prove removals',()=>{
@@ -52,4 +52,14 @@ test('structured source caps are visible so partial data cannot prove removals',
 test('a page with valid structured jobs can be read even without visible body text',async()=>{
  const f=async()=>new Response(`<script type="application/ld+json">${JSON.stringify({'@type':'JobPosting',title:job.title,url:job.url,description:job.description})}</script>`,{headers:{'content-type':'text/html'}});
  const result=await readSource('https://example.com/jobs/1','jobs',f);assert.equal(result.jobs.length,1);assert.equal(result.structured,true);
+});
+
+
+test('job source redirects are rejected without following another host',async()=>{
+ let calls=0;
+ await assert.rejects(readSource('https://boards.greenhouse.io/example','jobs',async(_url,init)=>{
+  calls++; assert.equal(init.redirect,'manual');
+  return new Response(null,{status:302,headers:{location:'https://other.example/'}});
+ }),/returned 302/);
+ assert.equal(calls,1);
 });

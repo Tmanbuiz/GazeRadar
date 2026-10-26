@@ -80,3 +80,18 @@ test('mail diagnostics identify the failing stage without logging sensitive mate
  assert.equal(logs[0][1].stage,'token_cache_write');
  assert.doesNotMatch(JSON.stringify(logs),/PRIVATE|987654|private@example/);
 });
+
+
+test('Zoho redirects are rejected without forwarding credentials',async(t)=>{
+ t.mock.method(console,'error',()=>{});
+ for(const tokenRedirect of [true,false]) {
+  const f=fakeFetch((url,init)=>{
+   assert.equal(init.redirect,'manual');
+   if(!tokenRedirect && url.includes('/oauth/')) return json({access_token:'private-token'});
+   return new Response(null,{status:302,headers:{location:'https://other.example/collect'}});
+  });
+  await assert.rejects(sendLoginCode(env,makeDb(),f,'u@example.com','654321',0));
+  assert.equal(f.calls.length,tokenRedirect?1:2);
+  assert.ok(f.calls.every(c=>!c.url.includes('other.example')));
+ }
+});

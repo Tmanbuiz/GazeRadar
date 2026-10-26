@@ -11,7 +11,7 @@ export function jobFeed(input:string):{kind:'greenhouse'|'lever';url:string}|nul
 }
 // Providers are fixed official endpoints, never a proxy to arbitrary JSON destinations.
 async function feedJson(url:string,f:typeof fetch):Promise<unknown>{
- const r=await f(url,{redirect:'error',signal:AbortSignal.timeout(18000),headers:{accept:'application/json'}});
+ const r=await f(url,{redirect:'manual',signal:AbortSignal.timeout(18000),headers:{accept:'application/json'}});
  if(!r.ok){await r.body?.cancel();throw new Error(`Job source returned ${r.status}. Review the source URL or try later.`);}
  const reader=r.body?.getReader();if(!reader)throw new Error('The job source returned an empty response.');
  const chunks:Uint8Array[]=[];let size=0;
