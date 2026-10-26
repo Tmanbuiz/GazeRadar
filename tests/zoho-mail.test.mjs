@@ -58,3 +58,25 @@ test('turnstile fails closed',async()=>{
  assert.equal(await verifyTurnstile('s','tok','ip',fakeFetch(()=>json({success:false}))),false);
  assert.equal(await verifyTurnstile('s','tok','ip',fakeFetch(()=>json({success:true},500))),false);
 });
+
+
+test('mail diagnostics identify the failing stage without logging sensitive material',async(t)=>{
+ const logs=[];
+ t.mock.method(console,'error',(...args)=>logs.push(args));
+ await assert.rejects(sendLoginCode(env,makeDb(),fakeFetch(()=>json({error:'invalid_client',secret:'PRIVATE'})),'private@example.com','987654',0));
+ assert.equal(logs.length,1);
+ assert.equal(logs[0][0],'gazeradar.mail.failure');
+ assert.equal(logs[0][1].stage,'token_response');
+ assert.equal(logs[0][1].providerError,'invalid_client');
+ logs.length=0;
+ await assert.rejects(sendLoginCode(env,makeDb(),fakeFetch(()=>{throw new TypeError('PRIVATE csec rtok 987654 private@example.com');}),'private@example.com','987654',0));
+ assert.equal(logs[0][1].stage,'token_request');
+ assert.equal(logs[0][1].reason,'Unclassified runtime failure');
+ assert.doesNotMatch(JSON.stringify(logs),/PRIVATE|csec|rtok|987654|private@example/);
+ logs.length=0;
+ const db=makeDb();const prepare=db.prepare.bind(db);
+ db.prepare=(sql)=>{if(sql.startsWith('INSERT INTO zoho_token'))throw new Error('PRIVATE database error');return prepare(sql);};
+ await assert.rejects(sendLoginCode(env,db,fakeFetch(()=>json({access_token:'PRIVATE'})),'private@example.com','987654',0));
+ assert.equal(logs[0][1].stage,'token_cache_write');
+ assert.doesNotMatch(JSON.stringify(logs),/PRIVATE|987654|private@example/);
+});
