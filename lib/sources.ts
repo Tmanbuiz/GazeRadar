@@ -1,3 +1,4 @@
+import {jobCandidates,LINKED_JOB_LIMIT} from './job-discovery.ts';
 import {pageLines,readPage,validUrl,type Link} from './monitor.ts';
 import {structuredListings} from './structured.ts';
 import type {Job,Home} from './matching.ts';
@@ -37,6 +38,20 @@ export async function readSource(url:string,category:string,f:typeof fetch=fetch
   return {jobs,homes:[],lines:jobs.map(j=>`${j.title} ${j.location}`),links:[],truncated:rows.length>=100,structured:true};
  }
  const page=await readPage(url,f,category!=='website'),data=structuredListings(page.html,page.url);
+ if(category==='jobs'&&!data.jobs.length){
+  const candidates=jobCandidates(page.links,page.url);
+  const discovered=await Promise.allSettled(candidates.slice(0,LINKED_JOB_LIMIT).map(async href=>{
+   const detail=await readPage(href,f,true);
+   return structuredListings(detail.html,detail.url).jobs;
+  }));
+  const jobs=discovered.flatMap(r=>r.status==='fulfilled'?r.value:[]);
+  if(jobs.length){
+   const unique=[...new Map(jobs.map(j=>[j.url,j])).values()];
+   // Linked pages are a sample, not a complete employer feed. Never infer that
+   // jobs missing from this sample have closed or disappeared.
+   return {...page,jobs:unique,homes:[],truncated:true,structured:true};
+  }
+ }
  const structured=category==='jobs'?data.jobs.length>0:category==='housing'?data.homes.length>0:false;
  if(!structured&&page.lines.join('').length<120)throw new Error('Not enough readable text or listing data. Try a direct source URL or check again later.');
  return {...page,...data,truncated:page.truncated||data.truncated,structured};

@@ -94,3 +94,22 @@ Worker ordinary variables: `ZOHO_ACCOUNT_ID`, `ZOHO_FROM`, `TURNSTILE_SITE_KEY`.
 Email-code sign-in creates a private account on the first successful verification. Codes are random, HMAC-stored, single-use, valid 10 minutes, with 5 wrong attempts maximum. Sessions use a random token in a 30-day `__Host-gz_session` cookie (HttpOnly, Secure, SameSite=Lax); only its hash is stored. State-changing requests require the site's own origin. Turnstile and per-address/IP/global limits protect code requests.
 
 Optional Cloudflare Access support verifies signed JWTs using `CF_ACCESS_TEAM_DOMAIN` and `CF_ACCESS_AUD`. Protect every enabled hostname consistently. Access subjects and email-code subjects remain separate identities; old records are never silently reassigned. Client-supplied user-ID headers and hardcoded shared identities are never trusted.
+
+### Linked job discovery and shortlists
+
+Readable job boards without their own structured listings can discover job data
+from up to three direct posting links per check. Only the source origin and
+recognized Greenhouse, Lever and ApplyToJobs posting hosts are followed. Each
+posting still needs readable JobPosting structured data; link text alone never
+becomes a job. Linked discovery is a partial sample and cannot prove a job has
+closed. JavaScript-only or blocked boards remain unsupported. Direct employer
+feeds are preferable for complete coverage.
+
+Jobs and homes can be compared three at a time. Overview includes one account
+ goal with private notes and up to 20 shortlisted opportunities. Goals use the
+existing profiles table; no database migration is required. A user can explicitly
+create a seven-day, read-only snapshot share. Anyone with the link can read its
+goal title and listing names/URLs. Notes, CV preferences and account details are
+excluded. Tokens are randomly generated (256 bits), stored only as SHA-256 hashes,
+and revocable. A new share replaces the previous link. Saving a goal does not
+publish it or change an existing shared snapshot.

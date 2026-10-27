@@ -64,7 +64,7 @@ export async function checkWatch({db,watch:w,now=Date.now(),read=readSource}:Dep
    .bind(toSnapshot(page.lines),now,now,now+w.interval_hours*3600000,JSON.stringify({structured:page.structured,unavailable:false}),w.id,w.owner,now));
   statements.push(db.prepare('DELETE FROM events WHERE owner=? AND emailed=1 AND id NOT IN (SELECT id FROM events WHERE owner=? ORDER BY created DESC LIMIT 500)').bind(w.owner,w.owner));
   await db.batch(statements);
-  const note=page.truncated?` This source was limited to ${page.structured?'100 listings':`${MAX_LINES} lines`}.` : '';
+  const note=page.truncated?` This source was limited to ${page.structured?'a partial set of listings; missing entries are not treated as removed':`${MAX_LINES} lines`}.` : '';
   return {message:`${!previous&&!page.structured?'Baseline saved. Future checks will report matching changes.':changes.length?`${changes.length} matching update${changes.length===1?'':'s'} found.`:rebase?'Page layout changed; a new baseline was saved.':'No new matching changes.'}${note}`,baseline:!previous,changes:changes.length,truncated:page.truncated};
  }catch(e){
   const message=e instanceof Error?e.message:'Unable to read this source. Try again later.';
