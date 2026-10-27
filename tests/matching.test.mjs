@@ -115,3 +115,12 @@ test('pay preferences validate new fields and retain legacy annual interpretatio
  assert.equal(jobProfile({salaryPeriod:'HOUR',minimumSalary:24.01,excludeUnknownSalary:true}).minimumSalary,24.01);
  for(const invalid of [{salaryPeriod:'DAY'},{hoursPerWeek:0},{hoursPerWeek:169},{hoursPerWeek:'40'},{salaryStrict:'true'},{excludeUnknownSalary:1}])assert.throws(()=>jobProfile(invalid));
 });
+
+test('house preferences accept schema residence labels and disclose unknown property types',()=>{
+ const profile={...emptyHousing,propertyType:'House'};
+ assert.equal(matchHome({...home,title:'123 Example',description:'',propertyType:'SingleFamilyResidence'},profile).relevant,true);
+ const unknown=matchHome({...home,title:'123 Example',description:'',propertyType:'RealEstateListing'},profile);
+ assert.equal(unknown.relevant,true);assert.match(unknown.review.join(' '),/property type was not provided/);
+ const apartment=matchHome({...home,title:'123 Example',description:'',propertyType:'Apartment'},profile);
+ assert.equal(apartment.relevant,false);assert.match(apartment.review.join(' '),/does not match/);
+});

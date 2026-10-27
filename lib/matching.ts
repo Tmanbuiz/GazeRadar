@@ -62,7 +62,15 @@ export function matchHome(h:Home,p:HousingProfile):{relevant:boolean;reasons:str
  if(p.maximumPrice!==null){if(h.price===null||h.currency!=='CAD'||(p.mode!=='any'&&h.mode==='unknown'))review.push('Comparable CAD price is unavailable; review the source.');else if(h.price>p.maximumPrice)relevant=false;else reasons.push('Listed price is within your budget.');}
  if(p.bedrooms!==null){if(h.bedrooms===null)review.push('Bedroom count was not provided.');else if(h.bedrooms<p.bedrooms)relevant=false;else reasons.push(`${h.bedrooms} bedrooms meets your minimum.`);}
  if(p.locations.length){if(p.locations.some(l=>hasTerm(h.location,l)))reasons.push(`Location matches ${h.location}.`);else if(h.location)relevant=false;else review.push('Location was not provided.');}
- if(p.propertyType&&!hasTerm(h.propertyType+' '+h.title+' '+h.description,p.propertyType))relevant=false;
+ if(p.propertyType){
+  const evidence=h.propertyType+' '+h.title+' '+h.description;
+  const house=/^house$/i.test(p.propertyType.trim())&&/SingleFamilyResidence|DetachedHouse/i.test(h.propertyType);
+  const generic=!h.propertyType||/^(RealEstateListing|Residence|Accommodation)$/i.test(h.propertyType);
+  if(!house&&!hasTerm(evidence,p.propertyType)){
+   if(generic)review.push('Specific property type was not provided; confirm it at the source.');
+   else {relevant=false;review.push('Published property type does not match your preference.');}
+  }
+ }
  if(!reasons.length)reasons.push('Found on your selected property source.');
  return {relevant,reasons,review};
 }
