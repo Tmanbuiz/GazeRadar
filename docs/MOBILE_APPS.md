@@ -113,3 +113,24 @@ lock-screen notification, tap into Alert inbox, test foreground delivery,
 disable/re-enable, sign out, and revoke the device from another signed-in
 session. Repeat on a device with notifications denied. No delivery has been
 verified until those physical-device tests pass.
+
+## Signed TestFlight upload
+
+Apple app record: **6827947653** (GazeRadar), team **VDJPBJ666U**, bundle **com.wiantribe.gazeradar**. The identifier has Push Notifications enabled. App Store Connect user access is Full Access, approved by the owner.
+
+`.github/workflows/testflight.yml` is a manual-only upload workflow for `main`. Unlike the pilot compile workflow, it validates an App Store distribution provisioning profile, imports a matching distribution certificate into an ephemeral macOS keychain, archives and exports a signed IPA, validates it, then uploads it to Apple. It does not submit a public App Store release or invite testers. Signing credentials are never committed or published as artifacts.
+
+Configure these GitHub Actions secrets in Tmanbuiz/GazeRadar before running it:
+
+| Secret | Value |
+| --- | --- |
+| BUILD_CERTIFICATE_BASE64 | Base64-encoded Apple Distribution `.p12`, including its private key |
+| P12_PASSWORD | Password protecting that `.p12` |
+| BUILD_PROVISION_PROFILE_BASE64 | Base64-encoded App Store Connect distribution profile for `com.wiantribe.gazeradar`, with production push |
+| APP_STORE_CONNECT_KEY_ID | Apple upload API key ID |
+| APP_STORE_CONNECT_ISSUER_ID | Team API key issuer ID |
+| APP_STORE_CONNECT_PRIVATE_KEY | Full private `.p8` key text |
+
+Credentials must be entered directly in GitHub's secret settings, never in chat, source files, issue comments, or workflow logs. Creating a new Apple API key or granting GitHub access to signing credentials requires the owner's specific approval. Existing certificates must not be revoked as part of setup.
+
+After secrets are configured, run **Actions → GazeRadar TestFlight → Run workflow** on `main`. Wait for Apple processing and verify the new build under **GazeRadar → TestFlight**. A successful upload is not confirmation of successful processing, external beta review, or physical-device push delivery. The pilot wrapper limitations described above still apply.
