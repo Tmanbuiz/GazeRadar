@@ -7,11 +7,13 @@ import {applicationDraft} from '../lib/application-draft';
 export default function ApplicationComposer({job,profile}:{job:Job;profile:JobProfile}){
  const [cv,setCV]=useState(''),[name,setName]=useState(''),[format,setFormat]=useState<'email'|'short'>('email'),[busy,setBusy]=useState(false),[status,setStatus]=useState(''),[subject,setSubject]=useState(''),[body,setBody]=useState('');
  const [description,setDescription]=useState(job.description||'');
- const sourceJob={...job,description};
+ const [title,setTitle]=useState(job.title||''),[company,setCompany]=useState(job.company||'');
+ const sourceJob={...job,title,company,description};
  const basis=applicationDraft(sourceJob,profile,cv,name,format);
  async function copy(text:string){try{await navigator.clipboard.writeText(text);setStatus('Copied. Review it before sending to the employer.');}catch{setStatus('Copy was unavailable. Select the text and copy it manually.');}}
  return <details className="application-composer"><summary>Compose employer message</summary><p>Create an editable draft for this job using your reviewed skills and relevant lines from your CV. Nothing is sent to an employer.</p>
  <details><summary>Job description used</summary><p className="draft-source">{basis.description||'This source did not provide a readable description. Paste the full description below before composing.'}</p></details>
+ <label>Job title<input maxLength={200} value={title} onChange={e=>setTitle(e.target.value)}/></label><label>Employer<input maxLength={200} value={company} onChange={e=>setCompany(e.target.value)}/></label>
  <label>Job description<textarea rows={5} maxLength={50000} value={description} onChange={e=>setDescription(e.target.value)} placeholder="Paste the employer’s full job description if it is missing or incomplete."/></label>
  <label>Your name<input maxLength={120} value={name} onChange={e=>setName(e.target.value)} autoComplete="name"/></label>
  <label>CV for this draft<input type="file" accept=".pdf,.docx,.txt" disabled={busy} onChange={async e=>{const file=e.target.files?.[0];e.target.value='';if(!file)return;setBusy(true);try{setCV((await readCV(file)).slice(0,50000));setStatus('CV read on this device. Review the text below.');}catch(err){setStatus(err instanceof Error?err.message:'Unable to read the CV. Paste the text below.');}finally{setBusy(false);}}}/></label>
