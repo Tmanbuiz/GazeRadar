@@ -41,6 +41,11 @@ jobs:
           version: 11.25.0
       - run: pnpm install --frozen-lockfile
       - run: pnpm exec cap sync ios
+      - name: Select OpenSSL 3 for signing-file compatibility
+        run: |
+          openssl_prefix="$(brew --prefix openssl@3)"
+          test -x "$openssl_prefix/bin/openssl"
+          echo "GAZE_OPENSSL=$openssl_prefix/bin/openssl" >> "$GITHUB_ENV"
       - name: Sign, archive, and upload to Apple
         run: bash mobile/scripts/upload-testflight.sh
       - name: Remove signing files

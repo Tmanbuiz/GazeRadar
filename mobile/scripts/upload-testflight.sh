@@ -40,7 +40,8 @@ echo "::add-mask::$keychain_password"
 security create-keychain -p "$keychain_password" "$keychain"
 security set-keychain-settings -lut 21600 "$keychain"
 security unlock-keychain -p "$keychain_password" "$keychain"
-security import "$sign_dir/certificate.p12" -P "$P12_PASSWORD" -T /usr/bin/codesign -T /usr/bin/security -k "$keychain" >/dev/null
+bash mobile/scripts/prepare-signing-p12.sh "$sign_dir/certificate.p12" "$sign_dir/certificate-macos.p12"
+security import "$sign_dir/certificate-macos.p12" -P "$P12_PASSWORD" -T /usr/bin/codesign -T /usr/bin/security -k "$keychain" >/dev/null
 security set-key-partition-list -S apple-tool:,apple:,codesign: -k "$keychain_password" "$keychain" >/dev/null
 security list-keychains -d user -s "$keychain" login.keychain-db
 mkdir -p "$HOME/Library/MobileDevice/Provisioning Profiles"
