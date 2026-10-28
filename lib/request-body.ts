@@ -1,4 +1,4 @@
-// Bound requests before parsing; original CV files are never an accepted payload.
+// Bound requests before parsing. Profiles accept reviewed fields only; the application endpoint explicitly allows a bounded CV attachment.
 export async function jsonBody<T extends object>(req:Request,maxBytes=12000):Promise<T> {
  if(Number(req.headers.get('content-length'))>maxBytes)throw new Error('This request is too large. Save only the reviewed profile fields.');
  const reader=req.body?.getReader();if(!reader)throw new Error('This request is empty. Please try again.');

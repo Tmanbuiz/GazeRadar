@@ -34,3 +34,12 @@ export const notifications = sqliteTable('notifications', {
 export const pushDevices = sqliteTable('push_devices', {
  id:text('id').primaryKey(),owner:text('owner').notNull(),platform:text('platform').notNull(),token:text('token').notNull(),environment:text('environment').notNull().default('production'),created:integer('created').notNull(),cursorTime:integer('cursor_time').notNull(),cursorId:text('cursor_id').notNull().default(''),enabled:integer('enabled').notNull().default(1),lockedUntil:integer('locked_until').notNull().default(0),retryAt:integer('retry_at').notNull().default(0),failures:integer('failures').notNull().default(0),error:text('error'),
 },t=>[index('push_devices_owner').on(t.owner)]);
+export const mailAccounts = sqliteTable('mail_accounts', {
+ owner:text('owner').primaryKey(),provider:text('provider').notNull(),email:text('email').notNull(),refresh:text('refresh').notNull(),updated:integer('updated').notNull(),
+});
+export const mailOauth = sqliteTable('mail_oauth', {
+ id:text('id').primaryKey(),owner:text('owner').notNull(),provider:text('provider').notNull(),verifier:text('verifier').notNull(),expires:integer('expires').notNull(),
+});
+export const applications = sqliteTable('applications', {
+ id:text('id').primaryKey(),owner:text('owner').notNull(),recipient:text('recipient').notNull(),sender:text('sender').notNull(),title:text('title').notNull(),jobUrl:text('job_url').notNull(),status:text('status').notNull(),created:integer('created').notNull(),
+},t=>[index('applications_owner_created').on(t.owner,t.created)]);
