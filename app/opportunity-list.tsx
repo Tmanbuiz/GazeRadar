@@ -1,9 +1,12 @@
 'use client';
 import {useState} from 'react';
 import {ArrowUpRight,Bookmark,Check,MapPin} from 'lucide-react';
+import ApplicationComposer from './application-composer';
+import type {JobProfile} from '../lib/preferences';
+import {emptyJobs} from '../lib/preferences';
 import type {Job,Home,Match} from '../lib/matching';
 export type Opportunity={id:string;url:string;name:string;state:string;available:number;source_name:string;listing:Job|Home;match:Match|{relevant:boolean;reasons:string[];review:string[]};updated:number};
-export default function Opportunities({kind,items,update}:{kind:'jobs'|'housing';items:Opportunity[];update:(id:string,state:string)=>Promise<void>}){
+export default function Opportunities({kind,items,update,profile=emptyJobs}:{profile?:JobProfile;kind:'jobs'|'housing';items:Opportunity[];update:(id:string,state:string)=>Promise<void>}){
  const [filter,setFilter]=useState('matches'),[pending,setPending]=useState(''),[selected,setSelected]=useState<string[]>([]);
  const compared=items.filter(i=>selected.includes(i.id));
  const shown=items.filter(i=>filter==='saved'?['saved','applied'].includes(i.state):filter==='all'?i.state!=='dismissed':i.match.relevant&&i.state!=='dismissed'&&i.available);
@@ -13,6 +16,7 @@ export default function Opportunities({kind,items,update}:{kind:'jobs'|'housing'
   {kind==='jobs'&&<p className="result-price">{j.salary!==null?`${j.currency||'Currency not given'} ${j.salary.toLocaleString()}${j.salaryUnit?` / ${j.salaryUnit.toLowerCase()}`:' · pay period not provided'}`:'Pay not provided'}</p>}
   {kind==='housing'&&<p className="result-price">{h.price!==null?`${h.currency||'Currency not given'} ${h.price.toLocaleString()}`:'Price not provided'}{h.bedrooms!==null?` · ${h.bedrooms} bedrooms`:''}{h.status?` · ${h.status}`:''}</p>}
   <ul className="match-reasons">{i.match.reasons.map((r,n)=><li key={n}><Check size={13} aria-hidden="true"/>{r}</li>)}</ul>{i.match.review.length>0&&<details className="review-notes"><summary>What to review</summary><ul>{i.match.review.map((r,n)=><li key={n}>{r}</li>)}</ul></details>}
+  {kind==='jobs'&&<ApplicationComposer job={j} profile={profile}/>}
   <label className="check-label"><input type="checkbox" checked={selected.includes(i.id)} disabled={!selected.includes(i.id)&&selected.length>=3} onChange={e=>setSelected(e.target.checked?[...selected,i.id]:selected.filter(id=>id!==i.id))}/>Compare (up to 3)</label><div className="result-footer"><span>{i.source_name}</span><label><span className="sr-only">Status for {i.name}</span><select aria-label={`Status for ${i.name}`} disabled={pending===i.id} value={i.state} onChange={async e=>{setPending(i.id);try{await update(i.id,e.target.value);}finally{setPending('');}}}><option value="new">New</option><option value="saved">Saved</option>{kind==='jobs'&&<option value="applied">Applied</option>}<option value="dismissed">Dismissed</option></select></label></div>
  </article>;})}</div>:<div className="empty-state compact"><Bookmark size={26}/><h3>{filter==='saved'?'Keep the promising ones close.':'Your next match starts with a source.'}</h3><p>{filter==='saved'?'Change a result’s status to Saved to keep it here.':'Add a source below and check it. Structured listings appear here; matching changes on ordinary pages appear in the alert inbox.'}</p></div>}
  </section>;
