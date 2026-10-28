@@ -36,6 +36,13 @@
       "when": 1792795359038,
       "tag": "0004_gifted_slyde",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1793156486813,
+      "tag": "0005_mobile_push",
+      "breakpoints": true
     }
   ]
 }

@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">GazeRadar</string>
+    <string name="title_activity_main">GazeRadar</string>
+    <string name="package_name">com.wiantribe.gazeradar</string>
+    <string name="custom_url_scheme">com.wiantribe.gazeradar</string>
+</resources>

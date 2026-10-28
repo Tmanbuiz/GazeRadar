@@ -1,0 +1,29 @@
+{
+  "appId": "com.wiantribe.gazeradar",
+  "appName": "GazeRadar",
+  "webDir": "mobile/www",
+  "server": {
+    "url": "https://gazeradar.wiantribe.com",
+    "cleartext": false,
+    "errorPath": "index.html"
+  },
+  "android": {
+    "path": "mobile/android",
+    "allowMixedContent": false
+  },
+  "ios": {
+    "path": "mobile/ios",
+    "contentInset": "automatic"
+  },
+  "loggingBehavior": "debug",
+  "plugins": {
+    "PushNotifications": {
+      "presentationOptions": [
+        "badge",
+        "sound",
+        "banner",
+        "list"
+      ]
+    }
+  }
+}

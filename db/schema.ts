@@ -31,3 +31,6 @@ export const opportunities = sqliteTable('opportunities', {
 export const notifications = sqliteTable('notifications', {
  owner:text('owner').primaryKey(), frequency:text('frequency').notNull().default('off'), noChange:integer('no_change').notNull().default(0), nextDigest:integer('next_digest').notNull().default(0), sendingUntil:integer('sending_until').notNull().default(0), retryAt:integer('retry_at').notNull().default(0), attempts:integer('attempts').notNull().default(0), lastSent:integer('last_sent'), error:text('error'), updated:integer('updated').notNull(),
 });
+export const pushDevices = sqliteTable('push_devices', {
+ id:text('id').primaryKey(),owner:text('owner').notNull(),platform:text('platform').notNull(),token:text('token').notNull(),environment:text('environment').notNull().default('production'),created:integer('created').notNull(),cursorTime:integer('cursor_time').notNull(),cursorId:text('cursor_id').notNull().default(''),enabled:integer('enabled').notNull().default(1),lockedUntil:integer('locked_until').notNull().default(0),retryAt:integer('retry_at').notNull().default(0),failures:integer('failures').notNull().default(0),error:text('error'),
+},t=>[index('push_devices_owner').on(t.owner)]);

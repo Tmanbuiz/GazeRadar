@@ -43,3 +43,20 @@ yarn-error.log*
 
 # OS metadata
 .DS_Store
+
+# Native build products and private signing/configuration
+mobile/**/build/
+mobile/**/.gradle/
+mobile/**/local.properties
+mobile/**/capacitor-cordova-android-plugins/
+mobile/**/xcuserdata/
+mobile/**/DerivedData/
+mobile/**/public/
+mobile/**/capacitor.config.json
+mobile/**/capacitor.plugins.json
+mobile/**/google-services.json
+*.keystore
+*.jks
+*.p12
+*.p8
+*.mobileprovision
