@@ -1,4 +1,6 @@
 import {jsonBody} from '../../../lib/request-body';
+import {env} from 'cloudflare:workers';
+import {watchLimit,reserveWatch} from '../../../lib/watch-capacity';
 import {context,failure} from '../../../lib/server';
 import {validUrl} from '../../../lib/monitor';
 import {categories,intervals,jsonValue,watchOptions} from '../../../lib/preferences';
@@ -11,9 +13,8 @@ export async function POST(req:Request){try{
  const keywords=String(b.keywords||'').split(',').map(x=>x.trim()).filter(Boolean);if(keywords.length>15||keywords.some(k=>k.length>60))throw new Error('Use up to 15 keywords, each under 60 characters.');
  const duplicate=await db.prepare('SELECT id FROM watches WHERE owner=? AND url=?').bind(owner,url).first();if(duplicate)throw new Error('You already have a watch for this URL.');
  const id=crypto.randomUUID(),now=Date.now();
- const inserted=await db.prepare('INSERT INTO watches (id,owner,name,url,keywords,created,category,interval_hours,next_check,email_enabled,options) SELECT ?,?,?,?,?,?,?,?,?,?,? WHERE (SELECT COUNT(*) FROM watches WHERE owner=?)<20')
- .bind(id,owner,name,url,JSON.stringify(keywords),now,category,hours,now,b.emailEnabled===false?0:1,JSON.stringify(watchOptions(b.options)),owner).run();
- if(!inserted.meta.changes)throw new Error('Your account supports 20 watches. Delete one before adding another.');
+ const limit=await watchLimit(db,owner,env.WATCH_UNLIMITED_EMAIL_HASHES);
+ await reserveWatch(db,{id,owner,name,url,keywords:JSON.stringify(keywords),created:now,category,hours,emailEnabled:b.emailEnabled!==false,options:JSON.stringify(watchOptions(b.options))},limit);
  return Response.json({id});
 }catch(e){return failure(e);}}
 export async function PATCH(req:Request){try{

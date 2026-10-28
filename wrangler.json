@@ -1,11 +1,31 @@
 {
- "$schema":"node_modules/wrangler/config-schema.json",
- "name":"gazeradar",
- "main":"worker/index.ts",
- "compatibility_date":"2026-05-15",
- "compatibility_flags":["nodejs_compat"],
- "keep_vars":true,
- "triggers":{"crons":["*/15 * * * *"]},
- "routes":[{"pattern":"gazeradar.wiantribe.com","custom_domain":true}],
- "d1_databases":[{"binding":"DB","database_name":"gazeradar-db","migrations_dir":"drizzle"}]
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "gazeradar",
+  "main": "worker/index.ts",
+  "compatibility_date": "2026-05-15",
+  "compatibility_flags": [
+    "nodejs_compat"
+  ],
+  "keep_vars": true,
+  "triggers": {
+    "crons": [
+      "*/15 * * * *"
+    ]
+  },
+  "routes": [
+    {
+      "pattern": "gazeradar.wiantribe.com",
+      "custom_domain": true
+    }
+  ],
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "gazeradar-db",
+      "migrations_dir": "drizzle"
+    }
+  ],
+  "vars": {
+    "WATCH_UNLIMITED_EMAIL_HASHES": "cedc38e5f640151ee3ee49fd103563a5be47c87ad8ef90e8480b5b71aafbd028"
+  }
 }

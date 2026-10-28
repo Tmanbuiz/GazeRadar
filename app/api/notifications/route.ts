@@ -4,11 +4,12 @@ import {context,failure} from '../../../lib/server';
 import {frequencies,type Frequency} from '../../../lib/preferences';
 import {digestPeriod} from '../../../lib/notifications';
 import {zohoConfigured} from '../../../lib/zoho-mail';
+import {watchLimit} from '../../../lib/watch-capacity';
 export async function GET(req:Request){try{
  const {owner,db}=await context(req),p=await db.prepare('SELECT frequency,no_change,next_digest,last_sent,error FROM notifications WHERE owner=?').bind(owner).first();
  const u=await db.prepare("SELECT email FROM users WHERE 'email-otp:'||id=?").bind(owner).first<{email:string}>();
  const scheduler=await db.prepare("SELECT window_start FROM throttle WHERE key='scheduler:last_run'").first<{window_start:number}>();
- return Response.json({preferences:p??{frequency:'off',no_change:0,last_sent:null,error:null},email:u?.email??null,mailConfigured:zohoConfigured(env)&&!!env.AUTH_SECRET,lastScheduledRun:scheduler?.window_start??null},{headers:{'cache-control':'no-store'}});
+ return Response.json({preferences:p??{frequency:'off',no_change:0,last_sent:null,error:null},email:u?.email??null,mailConfigured:zohoConfigured(env)&&!!env.AUTH_SECRET,lastScheduledRun:scheduler?.window_start??null,watchLimit:await watchLimit(db,owner,env.WATCH_UNLIMITED_EMAIL_HASHES)},{headers:{'cache-control':'no-store'}});
 }catch(e){return failure(e);}}
 export async function PUT(req:Request){try{
  const {owner,db}=await context(req),b=await jsonBody<{frequency?:unknown;noChange?:unknown}>(req);

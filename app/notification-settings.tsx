@@ -1,7 +1,7 @@
 'use client';
 import {useState} from 'react';
 import {Bell,Save} from 'lucide-react';
-export type MailSettings={preferences:{frequency:string;no_change:number;last_sent:number|null;error:string|null};email:string|null;mailConfigured:boolean;lastScheduledRun:number|null};
+export type MailSettings={preferences:{frequency:string;no_change:number;last_sent:number|null;error:string|null};email:string|null;mailConfigured:boolean;lastScheduledRun:number|null;watchLimit?:number|null};
 export default function NotificationSettings({settings,signedIn,save}:{settings:MailSettings;signedIn:boolean;save:(frequency:string,noChange:boolean)=>Promise<boolean>}){
  const [frequency,setFrequency]=useState(settings.preferences.frequency),[noChange,setNoChange]=useState(!!settings.preferences.no_change),[busy,setBusy]=useState(false),[message,setMessage]=useState('');
  return <section className="settings-card notification-settings"><span className="settings-icon"><Bell size={22}/></span><h2>Email updates</h2><p>Send alerts to <strong>{settings.email||'your verified sign-in address'}</strong>. You can turn off email for individual watches.</p>
