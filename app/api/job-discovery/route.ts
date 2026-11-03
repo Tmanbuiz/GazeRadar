@@ -6,7 +6,7 @@ import {hit} from '../../../lib/login';
 import {matchJob} from '../../../lib/matching';
 import {readSource} from '../../../lib/sources';
 import {suggestJobWatches} from '../../../lib/watch-suggestions';
-import {expandJobTitles} from '../../../lib/groq-job-discovery';
+import {expandJobTitles,AIProviderError} from '../../../lib/groq-job-discovery';
 
 export async function POST(req:Request){try{
  const {owner,db}=await context(req);
@@ -18,8 +18,12 @@ export async function POST(req:Request){try{
  if(!await hit(db,'job-discovery:'+owner,4,3600000,now)||!await hit(db,'job-discovery:global',100,3600000,now))throw new Error('Search limit reached. Try again in an hour.');
  let titles:string[]=[],ai='off';
  if(input.useGroq===true){
-  ai='unavailable';
-  if(env.GROQ_API_KEY)try{titles=await expandJobTitles(profile,env.GROQ_API_KEY);ai='used';}catch{/* Continue with saved preferences. */}
+  ai='not configured';
+  if(env.GROQ_API_KEY)try{titles=await expandJobTitles(profile,env.GROQ_API_KEY);ai='used';}catch(e){
+   const status=e instanceof AIProviderError?e.status:0;
+   ai=status===401||status===403?'credentials rejected':status===429?'rate limited':'request failed';
+   console.warn('job-discovery AI fallback',{status,reason:ai});
+  }
  }
  const expanded={...profile,titles:[...new Set([...profile.titles,...titles])]};
  const suggestions=suggestJobWatches({...expanded,titles:[...new Set([...(profile.titles.slice(0,1)),...titles,...profile.titles])]});

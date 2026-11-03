@@ -51,7 +51,7 @@ export default function WatchSuggestions({profile,existing,add,refresh,emailOff}
   <p className="field-hint">When enabled, your saved titles and skills are sent to an external AI service for related search terms. Your CV file is not sent.</p>
   <button type="button" className="btn primary" disabled={searching||busy||(!profile.titles.length&&!profile.skills.length)} onClick={()=>void discover()}>{searching?'Checking job sources…':'Find jobs from my CV'}</button>
   {discovery&&<div>
-   <p>{discovery.ai==='used'?'AI Agent search terms: '+(discovery.titles.join(', ')||'no additional terms'):discovery.ai==='unavailable'?'The AI Agent was unavailable. Searched with your saved preferences.':'Searched with your saved preferences.'}</p>
+   <p>{discovery.ai==='used'?'AI Agent search terms: '+(discovery.titles.join(', ')||'no additional terms'):discovery.ai==='off'?'Searched with your saved preferences.':'AI Agent: '+discovery.ai+'. Searched with your saved preferences.'}</p>
    <p>{discovery.results.length?discovery.results.length+' matching openings found.':'No confirmed matches in the sources checked. If you set a pay minimum, listings without comparable published pay are excluded.'}</p>
    <div className="watch-grid">{discovery.results.map(job=><article className="watch-card" key={job.url}>
     <h3><a href={job.url} target="_blank" rel="noreferrer noopener">{job.title}</a></h3>

@@ -1,5 +1,9 @@
 import type {JobProfile} from './preferences.ts';
 
+export class AIProviderError extends Error {
+ constructor(readonly status:number){super('AI request rejected');}
+}
+
 export async function expandJobTitles(profile:JobProfile,key:string,fetcher:typeof fetch=fetch):Promise<string[]>{
  const response=await fetcher('https://api.groq.com/openai/v1/chat/completions',{
   method:'POST',redirect:'error',signal:AbortSignal.timeout(10000),
@@ -9,7 +13,7 @@ export async function expandJobTitles(profile:JobProfile,key:string,fetcher:type
    {role:'user',content:JSON.stringify({titles:profile.titles,skills:profile.skills})}
   ]})
  });
- if(!response.ok)throw new Error('Groq could not expand the search.');
+ if(!response.ok){await response.body?.cancel();throw new AIProviderError(response.status);}
  const data=await response.json() as {choices?:{message?:{content?:string}}[]};
  const result=JSON.parse(data.choices?.[0]?.message?.content??'{}') as {titles?:unknown};
  if(!Array.isArray(result.titles))throw new Error('Groq returned an invalid search plan.');
