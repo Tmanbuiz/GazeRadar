@@ -47,11 +47,11 @@ export default function WatchSuggestions({profile,existing,add,refresh,emailOff}
   <p>Based on your saved CV preferences. Choose the pages you want to follow. You can edit the suggested keywords before saving.</p>
   <p className="field-hint">Location: {profile.locations.join(', ')||'Any'} · Work arrangement: {profile.workMode} · Employment: {profile.employment.join(', ')||'Any'} · Pay: {profile.minimumSalary==null?'Any':`${profile.salaryStrict?'Above':'At least'} CAD ${profile.minimumSalary.toLocaleString()} per ${(profile.salaryPeriod||'YEAR').toLowerCase()}`}</p>
   <p className="field-hint">Structured job matches use your saved location, pay, work arrangement and employment preferences. Page-text alerts use keywords only. A suggestion does not guarantee the source is readable or has open jobs.</p>
-  <label className="check-label"><input type="checkbox" checked={useGroq} disabled={searching} onChange={e=>setUseGroq(e.target.checked)}/>Use Groq to expand job titles</label>
-  <p className="field-hint">When enabled, your saved titles and skills are sent to Groq for related search terms. Your CV file is not sent.</p>
+  <label className="check-label"><input type="checkbox" checked={useGroq} disabled={searching} onChange={e=>setUseGroq(e.target.checked)}/>Use AI Agent to find related job titles</label>
+  <p className="field-hint">When enabled, your saved titles and skills are sent to an external AI service for related search terms. Your CV file is not sent.</p>
   <button type="button" className="btn primary" disabled={searching||busy||(!profile.titles.length&&!profile.skills.length)} onClick={()=>void discover()}>{searching?'Checking job sources…':'Find jobs from my CV'}</button>
   {discovery&&<div>
-   <p>{discovery.ai==='used'?'Groq search terms: '+(discovery.titles.join(', ')||'no additional terms'):discovery.ai==='unavailable'?'Groq was unavailable. Searched with your saved preferences.':'Searched with your saved preferences.'}</p>
+   <p>{discovery.ai==='used'?'AI Agent search terms: '+(discovery.titles.join(', ')||'no additional terms'):discovery.ai==='unavailable'?'The AI Agent was unavailable. Searched with your saved preferences.':'Searched with your saved preferences.'}</p>
    <p>{discovery.results.length?discovery.results.length+' matching openings found.':'No confirmed matches in the sources checked. If you set a pay minimum, listings without comparable published pay are excluded.'}</p>
    <div className="watch-grid">{discovery.results.map(job=><article className="watch-card" key={job.url}>
     <h3><a href={job.url} target="_blank" rel="noreferrer noopener">{job.title}</a></h3>
