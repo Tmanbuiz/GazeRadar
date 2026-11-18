@@ -10,10 +10,20 @@ function url(x:unknown,base:string):string {try{return listingUrl(str(x,2000),ba
 function address(x:unknown):string {if(typeof x==='string')return str(x,300);const a=object(x);return [...new Set(['streetAddress','addressLocality','addressRegion','postalCode','addressCountry'].map(k=>typeof a[k]==='string'?str(a[k],100):str(object(a[k]).name,100)).filter(Boolean))].join(', ');}
 const text=(x:unknown)=>pageLines(`<p>${str(x)}</p>`).join('\n');
 function kind(x:Obj):string[]{return list(x['@type']).filter(t=>typeof t==='string') as string[];}
+// Single forward pass: nested lazy regex quantifiers backtrack badly on pages with many unclosed <script> tags.
+function ldJsonBlocks(html:string):string[]{
+ const out:string[]=[],open=/<script\b[^>]{0,1000}>/gi,close=/<\/script>/gi;let m:RegExpExecArray|null;
+ while((m=open.exec(html))){
+  if(!/\btype\s*=\s*["']application\/ld\+json["']/i.test(m[0]))continue;
+  close.lastIndex=m.index+m[0].length;const c=close.exec(html);if(!c)break;
+  out.push(html.slice(m.index+m[0].length,c.index));open.lastIndex=c.index+c[0].length;
+ }
+ return out;
+}
 export function structuredListings(html:string,base:string):{jobs:Job[];homes:Home[];truncated:boolean} {
  const nodes:Obj[]=[];let visited=0,capped=false;
  function walk(v:unknown,depth=0){if(depth>12||visited++>4000){capped=true;return;}if(Array.isArray(v)){if(v.length>200)capped=true;for(const x of v.slice(0,200))walk(x,depth+1);return;}if(!v||typeof v!=='object')return;const o=object(v);if(o['@type'])nodes.push(o);for(const [k,x]of Object.entries(o))if(k!=='description')walk(x,depth+1);}
- for(const m of html.matchAll(/<script\b[^>]*type\s*=\s*["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi)){try{walk(JSON.parse(m[1]));}catch{}}
+ for(const block of ldJsonBlocks(html)){try{walk(JSON.parse(block));}catch{}}
  const nested=new Set(nodes.flatMap(o=>kind(o).includes('RealEstateListing')?[object(o.about),object(o.mainEntity)]:[]));
  const jobs:Job[]=[],homes:Home[]=[];
  for(const o of nodes){

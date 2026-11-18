@@ -2,7 +2,14 @@ import {hmacHex,safeEqual,hit} from './login.ts';
 import {sendMail,zohoConfigured,type ZohoEnv,type MailMessage} from './zoho-mail.ts';
 import {jsonValue,type Frequency} from './preferences.ts';
 import {validUrl} from './monitor.ts';
-export type MailEnv=ZohoEnv&{AUTH_SECRET?:string;APP_URL?:string};
+export type MailEnv=ZohoEnv&{AUTH_SECRET?:string;APP_URL?:string;ALERT_EMAIL_ALLOWLIST?:string};
+// Watch-alert emails go only to these verified sign-in addresses. Set ALERT_EMAIL_ALLOWLIST (comma-separated) to override.
+export const DEFAULT_ALERT_EMAILS=['atoyejet@gmail.com','atoyesunny@gmail.com'];
+export function alertEmailAllowlist(env:{ALERT_EMAIL_ALLOWLIST?:string}):string[]{
+ const configured=(env.ALERT_EMAIL_ALLOWLIST||'').split(',').map(s=>s.trim().toLowerCase()).filter(Boolean);
+ return configured.length?configured:DEFAULT_ALERT_EMAILS;
+}
+export const alertEmailAllowed=(env:{ALERT_EMAIL_ALLOWLIST?:string},email:string|null|undefined)=>!!email&&alertEmailAllowlist(env).includes(email.trim().toLowerCase());
 export const digestPeriod=(frequency:Frequency)=>frequency==='weekly'?7*86400000:86400000;
 type Preference={owner:string;frequency:Frequency;no_change:number;next_digest:number;attempts:number;email:string};
 type Event={id:string;name:string;url:string;content:string;created:number};
@@ -17,13 +24,17 @@ export function alertMessage(rows:Event[],counts:{active:number;failed:number;ne
   ...rows.slice(0,30).map(e=>`\n${e.name}\nDetected: ${new Date(e.created).toISOString()}\n${summary(e.content).map(t=>`• ${t}`).join('\n')}\nSource: ${validUrl(e.url)}`),
   `\nMonitoring status: ${counts.active} active watches; ${counts.failed} currently have a failed check; ${counts.never} have not had a successful check. No alert does not establish that a page stayed unchanged.`,
   `\nOpen GazeRadar: ${base}\nManage email preferences: ${base}\nStop watch emails: ${unsubscribeUrl}`,
-  '\nChanges are reported after a successful check. Always review the original source. A missing listing does not confirm a sale.'];
+  '\nChanges are reported after a successful check. Always review the original source. A missing listing does not confirm a sale. Update text is copied from the watched page; GazeRadar did not write or verify it.'];
  return {subject:rows.length?`GazeRadar: ${rows.length} watch update${rows.length===1?'':'s'}`:'Your GazeRadar watchlist summary',content:content.join('\n')};
 }
 export async function deliverNotifications({db,env,now=Date.now(),send}:{db:D1Database;env:MailEnv;now?:number;send?:(to:string,message:MailMessage)=>Promise<void>}):Promise<{sent:number;failed:number;configured:boolean}> {
  if(!env.AUTH_SECRET||(!send&&!zohoConfigured(env)))return {sent:0,failed:0,configured:false};
  const base=validUrl(env.APP_URL||'https://gazeradar.wiantribe.com').replace(/\/$/,'');
- const prefs=await db.prepare("SELECT n.*,u.email FROM notifications n JOIN users u ON n.owner='email-otp:'||u.id WHERE n.frequency!='off' AND n.sending_until<? AND n.retry_at<=? AND ((n.frequency='change' AND EXISTS (SELECT 1 FROM events e JOIN watches w ON w.id=e.watch_id AND w.owner=e.owner WHERE e.owner=n.owner AND e.emailed=0 AND w.email_enabled=1)) OR (n.frequency IN ('daily','weekly') AND n.next_digest<=?)) ORDER BY n.last_sent ASC LIMIT 3").bind(now,now,now).all<Preference>();
+ const allow=alertEmailAllowlist(env),marks=allow.map(()=>'?').join(',');
+ // Accounts outside the allowlist get no alert emails: turn their email alerts off and retire pending events so nothing piles up.
+ const outside=`SELECT n.owner FROM notifications n JOIN users u ON n.owner='email-otp:'||u.id WHERE lower(u.email) NOT IN (${marks})`;
+ await db.batch([db.prepare(`UPDATE events SET emailed=1 WHERE emailed=0 AND owner IN (${outside})`).bind(...allow),db.prepare(`UPDATE notifications SET frequency='off' WHERE frequency!='off' AND owner IN (${outside})`).bind(...allow)]);
+ const prefs=await db.prepare(`SELECT n.*,u.email FROM notifications n JOIN users u ON n.owner='email-otp:'||u.id WHERE n.frequency!='off' AND n.sending_until<? AND n.retry_at<=? AND ((n.frequency='change' AND EXISTS (SELECT 1 FROM events e JOIN watches w ON w.id=e.watch_id AND w.owner=e.owner WHERE e.owner=n.owner AND e.emailed=0 AND w.email_enabled=1)) OR (n.frequency IN ('daily','weekly') AND n.next_digest<=?)) AND lower(u.email) IN (${marks}) ORDER BY n.last_sent ASC LIMIT 3`).bind(now,now,now,...allow).all<Preference>();
  let sent=0,failed=0;
  for(const p of prefs.results){
   const claim=await db.prepare("UPDATE notifications SET sending_until=? WHERE owner=? AND sending_until<? AND frequency!='off'").bind(now+180000,p.owner,now).run();if(!claim.meta.changes)continue;
@@ -32,7 +43,8 @@ export async function deliverNotifications({db,env,now=Date.now(),send}:{db:D1Da
    if(!rows.results.length&&(p.frequency==='change'||!p.no_change)){
     await db.prepare('UPDATE notifications SET sending_until=0,next_digest=? WHERE owner=?').bind(now+digestPeriod(p.frequency),p.owner).run();continue;
    }
-   if(!(await hit(db,'alerts:day',200,86400000,now))||!(await hit(db,'global:day',300,86400000,now)))throw new Error('Daily email limit reached.');
+   // Alerts have their own daily cap so they can never use up the sign-in code budget (and vice versa).
+   if(!(await hit(db,'alerts:day',200,86400000,now)))throw new Error('Daily email limit reached.');
    const stats=await db.prepare('SELECT COUNT(*) AS active,SUM(CASE WHEN error IS NOT NULL THEN 1 ELSE 0 END) AS failed,SUM(CASE WHEN last_ok IS NULL THEN 1 ELSE 0 END) AS never FROM watches WHERE owner=? AND active=1').bind(p.owner).first<{active:number;failed:number;never:number}>();
    const link=`${base}/unsubscribe?owner=${encodeURIComponent(p.owner)}&token=${await unsubscribeToken(env.AUTH_SECRET,p.owner)}`;
    const batch=rows.results.slice(0,30),message=alertMessage(batch,stats??{active:0,failed:0,never:0},base,link);

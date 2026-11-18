@@ -29,7 +29,7 @@ export async function createGoalShare(db:D1Database,owner:string,now=Date.now())
  if(!items.length)throw new Error('Your shortlisted items are no longer available.');
  const token=[...crypto.getRandomValues(new Uint8Array(32))].map(n=>n.toString(16).padStart(2,'0')).join('');
  const expires=now+7*86400000;
- await db.batch([db.prepare("DELETE FROM profiles WHERE owner=? AND kind='goal-share'").bind(owner),db.prepare("INSERT INTO profiles (id,owner,kind,content,updated) VALUES (?,?,'goal-share',?,?)").bind(`share:${await shareHash(token)}`,owner,JSON.stringify({title:goal.title,items,expires}),now)]);
+ await db.batch([db.prepare("DELETE FROM profiles WHERE kind='goal-share' AND (owner=? OR (json_valid(content) AND json_extract(content,'$.expires')<=?))").bind(owner,now),db.prepare("INSERT INTO profiles (id,owner,kind,content,updated) VALUES (?,?,'goal-share',?,?)").bind(`share:${await shareHash(token)}`,owner,JSON.stringify({title:goal.title,items,expires}),now)]);
  return {path:`/shared#${token}`,expires};
 }
 export async function readGoalShare(db:D1Database,token:string,now=Date.now()){

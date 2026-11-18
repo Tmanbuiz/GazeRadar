@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {makeDb} from './d1.mjs';
 import {deliverNotifications,unsubscribe,unsubscribeToken} from '../lib/notifications.ts';
-const now=1800000000000,env={AUTH_SECRET:'test-secret-not-real',APP_URL:'https://gazeradar.example.com'};
+const now=1800000000000,env={AUTH_SECRET:'test-secret-not-real',APP_URL:'https://gazeradar.example.com',ALERT_EMAIL_ALLOWLIST:'verified@example.com,empty0@example.com,empty1@example.com,empty2@example.com,empty3@example.com'};
 async function setup(frequency='change',noChange=0){
  const db=makeDb();await db.prepare('INSERT INTO users (id,email,created) VALUES (?,?,?)').bind('u','verified@example.com',now).run();
  await db.prepare('INSERT INTO watches (id,owner,name,url,keywords,created) VALUES (?,?,?,?,?,?)').bind('w','email-otp:u','My house','https://example.com/house','[]',now).run();

@@ -12,7 +12,8 @@ const fingerprint=(v:Job|Home)=>lineHash(JSON.stringify(v));
 export async function checkWatch({db,watch:w,now=Date.now(),read=readSource}:Deps):Promise<Result> {
  if(!w.active)throw new Error('Resume this watch before checking.');
  if(w.checked&&now-w.checked<60000)throw new Error('Please wait a minute between checks.');
- const lock=await db.prepare('UPDATE watches SET checking=? WHERE id=? AND owner=? AND active=1 AND (checked IS NULL OR checked<=?) AND (checking=0 OR checking<?)').bind(now,w.id,w.owner,now-60000,now-120000).run();
+ const lock=await db.prepare('UPDATE watches SET checking=?,next_check=? WHERE id=? AND owner=? AND active=1 AND (checked IS NULL OR checked<=?) AND (checking=0 OR checking<?)').bind(now,now+w.interval_hours*3600000,w.id,w.owner,now-60000,now-120000).run();
+ // next_check moves forward as soon as the lock is taken, so a check that is killed part-way (CPU limit, crash) cannot stay at the front of the queue and starve every other watch.
  if(!lock.meta.changes)throw new Error('This watch is already being checked or was checked recently.');
  const previousState=jsonValue(w.property_snapshot,{structured:false,unavailable:false});
  const options=watchOptions(jsonValue(w.options,{}));
