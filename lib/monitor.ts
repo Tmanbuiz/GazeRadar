@@ -24,13 +24,63 @@ function decode(s: string) {
   .replace(/&amp;/g,'&');
 }
 
+// Linear-time HTML helpers. Nested or lazy regex quantifiers backtrack quadratically (or worse) on hostile markup,
+// and one such page can stall every scheduled check. Each helper below does a single forward pass.
+function stripComments(html: string) {
+ let out = '', i = 0;
+ for (;;) {
+  const s = html.indexOf('<!--', i); if (s < 0) break;
+  const e = html.indexOf('-->', s + 4); if (e < 0) break;
+  out += html.slice(i, s); i = e + 3;
+ }
+ return out + html.slice(i);
+}
+// Removes <script>, <style>, <noscript>, <svg> and <head> blocks. A tag with no closing tag is left alone.
+function stripBlocks(html: string) {
+ const open = /<(script|style|noscript|svg|head)\b[^>]{0,1000}>/gi;
+ const closers = new Map<string, RegExp>(), missing = new Set<string>();
+ let out = '', i = 0, m: RegExpExecArray | null;
+ while ((m = open.exec(html))) {
+  const tag = m[1].toLowerCase();
+  if (missing.has(tag)) continue; // no closing tag exists after an earlier opener, so none exists after this one either
+  let close = closers.get(tag);
+  if (!close) { close = new RegExp(`</${tag}>`, 'gi'); closers.set(tag, close); }
+  close.lastIndex = m.index + m[0].length;
+  const c = close.exec(html);
+  if (!c) { missing.add(tag); continue; }
+  out += html.slice(i, m.index); i = c.index + c[0].length; open.lastIndex = i;
+ }
+ return out + html.slice(i);
+}
+// Replaces every <...> tag with a space.
+function stripTags(html: string) {
+ let out = '', i = 0, gt = -2;
+ for (;;) {
+  const lt = html.indexOf('<', i); if (lt < 0) break;
+  if (gt !== -1 && gt < lt + 1) gt = html.indexOf('>', lt + 1);
+  if (gt < 0) break;
+  if (gt === lt + 1) { out += html.slice(i, lt + 1); i = lt + 1; continue; }
+  out += html.slice(i, lt) + ' '; i = gt + 1;
+ }
+ return out + html.slice(i);
+}
+
 function extractLinks(html: string, base: string): Link[] {
  // Anchor text -> href. If the same text points at different places ("Read more"), drop it so we never attach a wrong link.
  const found = new Map<string, string|null>();
- const re = /<a\b[^>]*?\shref\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))[^>]*>([\s\S]{0,1500}?)<\/a>/gi;
- for (const m of html.matchAll(re)) {
-  const raw = decode(m[1] ?? m[2] ?? m[3] ?? '').trim();
-  const text = decode(m[4].replace(/<[^>]+>/g,' ')).replace(/\s+/g,' ').trim();
+ const open = /<a\s/gi, hrefRe = /\shref\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/i;
+ let gt = -2, m: RegExpExecArray | null;
+ while ((m = open.exec(html))) {
+  if (gt !== -1 && gt < m.index) gt = html.indexOf('>', m.index);
+  if (gt < 0) break;
+  if (gt - m.index > 2000) continue;
+  const hm = hrefRe.exec(html.slice(m.index, gt));
+  if (!hm) { open.lastIndex = gt + 1; continue; }
+  const window = html.slice(gt + 1, gt + 1506), close = /<\/a>/i.exec(window);
+  if (!close || close.index > 1500) { open.lastIndex = gt + 1; continue; }
+  open.lastIndex = gt + 1 + close.index + 4;
+  const raw = decode(hm[1] ?? hm[2] ?? hm[3] ?? "").trim();
+  const text = decode(stripTags(window.slice(0, close.index))).replace(/\s+/g,' ').trim();
   if (!raw || text.length < MIN_LINE || text.length >= 1800) continue;
   let u: URL; try { u = new URL(raw, base); } catch { continue; }
   if (u.protocol !== 'https:' || u.username || u.password) continue;
@@ -46,9 +96,9 @@ function extractLinks(html: string, base: string): Link[] {
 }
 
 export function pageData(html: string, baseUrl?: string) {
- const cleaned = html.replace(/<!--[\s\S]*?-->/g,'').replace(/<(script|style|noscript|svg|head)\b[^>]*>[\s\S]*?<\/\1>/gi,'');
+ const cleaned = stripBlocks(stripComments(html));
  const links = baseUrl ? extractLinks(cleaned, baseUrl) : [];
- const all = [...new Set(decode(cleaned.replace(/<\/(p|div|li|h[1-6]|tr|article|section)>|<br\s*\/?>/gi,'\n').replace(/<[^>]+>/g,' ')).split('\n').map(s=>s.replace(/\s+/g,' ').trim()).filter(s=>s.length>=MIN_LINE && s.length<1800))];
+ const all = [...new Set(decode(stripTags(cleaned.replace(/<\/(p|div|li|h[1-6]|tr|article|section)>|<br\s*\/?>/gi,'\n'))).split('\n').map(s=>s.replace(/\s+/g,' ').trim()).filter(s=>s.length>=MIN_LINE && s.length<1800))];
  return {lines: all.slice(0, MAX_LINES), truncated: all.length > MAX_LINES, links};
 }
 export function pageLines(html: string) {

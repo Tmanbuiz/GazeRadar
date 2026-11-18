@@ -15,7 +15,7 @@
     "path": "mobile/ios",
     "contentInset": "automatic"
   },
-  "loggingBehavior": "debug",
+  "loggingBehavior": "none",
   "plugins": {
     "PushNotifications": {
       "presentationOptions": [
